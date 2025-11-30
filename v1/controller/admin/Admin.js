@@ -1,10 +1,10 @@
-const Model = require("../../models/index");
-const Validation = require("../validations");
-const constants = require("../../common/constants");
-const functions = require("../../common/functions");
+const Model = require("../../../models/index");
+const Validation = require("../../validations");
+const constants = require("../../../common/constants");
+const functions = require("../../../common/functions");
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const Auth = require("../../common/authenticate");
+const Auth = require("../../../common/authenticate");
 
 
 
