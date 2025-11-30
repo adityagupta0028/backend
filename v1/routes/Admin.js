@@ -1,4 +1,4 @@
-const Controller = require('../controller')
+const Controller = require('../controller/admin')
 const Auth = require("../../common/authenticate");
 const upload = require("../../services/uploadServices");
 const router = require('express').Router();
@@ -46,7 +46,21 @@ router.get("/getSubCategoryDetail/:id",Auth.verify("Admin"), Controller.Category
 router.post("/updateSubCategory/:id", Auth.verify("Admin"), upload.single('image'), Controller.CategoryController.updateSubCategory);
 router.delete("/deleteSubCategory/:id", Auth.verify("Admin"), Controller.CategoryController.deleteSubCategory);
 
+// Product Routes
+router.post("/createProduct", Auth.verify("Admin"), upload.array('images', 10), Controller.ProductController.createProduct);
+router.get("/getProducts", Controller.ProductController.getProducts);
+router.get("/getProductDetail/:id", Controller.ProductController.getProductDetail);
+router.get("/getProductByProductId/:product_id", Controller.ProductController.getProductByProductId);
+router.post("/updateProduct/:id", Auth.verify("Admin"), upload.array('images', 10), Controller.ProductController.updateProduct);
+router.delete("/deleteProduct/:id", Auth.verify("Admin"), Controller.ProductController.deleteProduct);
 
-//deleteUser
+//banner
+router.post("/addBanner",Auth.verify("Admin"),upload.any(),Controller.BannerController.addBanner)
+router.get("/getAllBanner", Auth.verify("admin"), Controller.BannerController.getAllBanner);
+router.get("/getBannerById/:id", Auth.verify("admin"), Controller.BannerController.getBannerById);
+router.put("/updateBanner/:id", Auth.verify("admin"),upload.any(), Controller.BannerController.updateBanner);
+router.delete("/deleteBanner/:id", Auth.verify("admin"), Controller.BannerController.deleteBanner);
+
+
 
 module.exports = router

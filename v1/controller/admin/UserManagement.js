@@ -1,6 +1,6 @@
-const Model = require("../../models/index");
-const Validation = require("../validations");
-const constants = require("../../common/constants");
+const Model = require("../../../models/index");
+const Validation = require("../../validations");
+const constants = require("../../../common/constants");
 
 module.exports.addUser = async (req, res, next) => {
   try {

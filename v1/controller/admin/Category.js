@@ -1,6 +1,6 @@
-const Model = require("../../models/index");
-const Validation = require("../validations");
-const constants = require("../../common/constants");
+const Model = require("../../../models/index");
+const Validation = require("../../validations");
+const constants = require("../../../common/constants");
 
 // Create Category
 module.exports.createCategory = async (req, res, next) => {
@@ -160,7 +160,7 @@ module.exports.getSubCategories = async (req, res, next) => {
     
     // If category ID is provided, filter by category
     if (req.query.categoryId) {
-      query.category = req.query.categoryId;
+      query.categoryId = req.query.categoryId;
     }
     
     let subCategories = await Model.SubCategory.find(query)
