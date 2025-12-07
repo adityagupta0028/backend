@@ -1,7 +1,7 @@
 # Dependency directories
 node_modules/
 bower_components/
-####
+#######
 # Environment variables
 .env
 .env.local
