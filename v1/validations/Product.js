@@ -11,7 +11,7 @@ const Joi = require("joi").defaults((schema) => {
 
 // Create Product
 module.exports.createProduct = Joi.object({
-  product_id: Joi.string().required(),
+  product_id: Joi.string().optional().allow(''),
   product_name: Joi.string().min(2).max(100).required(),
   description: Joi.string().optional().allow(''),
   average_rating: Joi.number().min(0).max(5).optional(),
@@ -21,27 +21,53 @@ module.exports.createProduct = Joi.object({
   discount_label: Joi.string().optional().allow(''),
   promotion_label: Joi.string().optional().allow(''),
   promotion_end_date: Joi.date().optional(),
-  metal_type: Joi.string().valid(
-    "14K White Gold", "14K Yellow Gold", "14K Rose Gold",
-    "18K White Gold", "18K Yellow Gold", "18K Rose Gold",
-    "Platinum"
-  ).required(),
+  metal_type: Joi.alternatives().try(
+    Joi.array().items(Joi.string()).min(1),
+    Joi.string()
+  ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
-  diamond_origin: Joi.string().valid("Natural", "Lab Grown").required(),
-  carat_weight: Joi.number().greater(0).optional(),
-  diamond_quality: Joi.string().valid("Best - D, VVS", "Better - E, VS1", "Good - F, VS2").optional().allow(''),
+  diamond_origin: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
+  carat_weight: Joi.alternatives().try(
+    Joi.array().items(Joi.number().greater(0)),
+    Joi.number().greater(0)
+  ).optional(),
+  diamond_quality: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   diamond_color_grade: Joi.string().optional().allow(''),
   diamond_clarity_grade: Joi.string().optional().allow(''),
-  ring_size: Joi.number().min(3).max(10).required(),
-  engraving_text: Joi.string().max(15).optional().allow(''),
+  ring_size: Joi.alternatives().try(
+    Joi.array().items(Joi.number().min(3).max(10)),
+    Joi.number().min(3).max(10)
+  ).optional(),
+  necklace_size: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional(),
+  engraving_text: Joi.string().optional().allow(''),
   engraving_allowed: Joi.boolean().optional(),
   back_type: Joi.string().valid("Push Back", "Screw Back", "Guardian Back").optional().allow(''),
   matching_band_available: Joi.boolean().optional(),
+  matching_band_product_id: Joi.objectId().optional().allow(null),
   product_type: Joi.string().valid("Engagement Ring", "Earrings", "Pendant", "Bracelet").optional().allow(''),
   collection_name: Joi.string().optional().allow(''),
-  categoryId: Joi.objectId().required(),
-  subCategoryId: Joi.objectId().required(),
+  categoryId: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  subCategoryId: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  product_details: Joi.string().optional().allow(''),
+  center_stone_details: Joi.string().optional().allow(''),
+  side_stone_details: Joi.string().optional().allow(''),
+  stone_details: Joi.string().optional().allow(''),
   images: Joi.alternatives().try(
     Joi.array().items(Joi.string()).min(1),
     Joi.string()
@@ -50,10 +76,19 @@ module.exports.createProduct = Joi.object({
     Joi.array().items(Joi.string()),
     Joi.string()
   ).optional(),
-  status: Joi.string().valid("Active", "Inactive", "Draft").optional(),
+  status: Joi.string().optional(),
   tags: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()
+  ).optional(),
+  variants: Joi.array().items(
+    Joi.object({
+      diamond_type: Joi.string().required(),
+      carat_weight: Joi.string().required(),       // "0.5ct"
+      metal_type: Joi.string().required(),         // "15K White Gold"
+      price: Joi.number().greater(0).required(),
+      discounted_price: Joi.number().greater(0).required()
+    })
   ).optional()
 });
 
@@ -69,27 +104,53 @@ module.exports.updateProduct = Joi.object({
   discount_label: Joi.string().optional().allow(''),
   promotion_label: Joi.string().optional().allow(''),
   promotion_end_date: Joi.date().optional(),
-  metal_type: Joi.string().valid(
-    "14K White Gold", "14K Yellow Gold", "14K Rose Gold",
-    "18K White Gold", "18K Yellow Gold", "18K Rose Gold",
-    "Platinum"
-  ).optional(),
+  metal_type: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
-  diamond_origin: Joi.string().valid("Natural", "Lab Grown").optional(),
-  carat_weight: Joi.number().greater(0).optional(),
-  diamond_quality: Joi.string().valid("Best - D, VVS", "Better - E, VS1", "Good - F, VS2").optional().allow(''),
+  diamond_origin: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
+  carat_weight: Joi.alternatives().try(
+    Joi.array().items(Joi.number().greater(0)),
+    Joi.number().greater(0)
+  ).optional(),
+  diamond_quality: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   diamond_color_grade: Joi.string().optional().allow(''),
   diamond_clarity_grade: Joi.string().optional().allow(''),
-  ring_size: Joi.number().min(3).max(10).optional(),
-  engraving_text: Joi.string().max(15).optional().allow(''),
+  ring_size: Joi.alternatives().try(
+    Joi.array().items(Joi.number().min(3).max(10)),
+    Joi.number().min(3).max(10)
+  ).optional(),
+  necklace_size: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional(),
+  engraving_text: Joi.string().optional().allow(''),
   engraving_allowed: Joi.boolean().optional(),
   back_type: Joi.string().valid("Push Back", "Screw Back", "Guardian Back").optional().allow(''),
   matching_band_available: Joi.boolean().optional(),
+  matching_band_product_id: Joi.objectId().optional().allow(null),
   product_type: Joi.string().valid("Engagement Ring", "Earrings", "Pendant", "Bracelet").optional().allow(''),
   collection_name: Joi.string().optional().allow(''),
-  categoryId: Joi.objectId().optional(),
-  subCategoryId: Joi.objectId().optional(),
+  categoryId: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()),
+    Joi.objectId()
+  ).optional(),
+  subCategoryId: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()),
+    Joi.objectId()
+  ).optional(),
+  product_details: Joi.string().optional().allow(''),
+  center_stone_details: Joi.string().optional().allow(''),
+  side_stone_details: Joi.string().optional().allow(''),
+  stone_details: Joi.string().optional().allow(''),
   images: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()
@@ -98,7 +159,7 @@ module.exports.updateProduct = Joi.object({
     Joi.array().items(Joi.string()),
     Joi.string()
   ).optional(),
-  status: Joi.string().valid("Active", "Inactive", "Draft").optional(),
+  status: Joi.string().optional(),
   tags: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()

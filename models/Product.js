@@ -32,22 +32,22 @@ const productSchema = new mongoose.Schema({
   original_price: {
     type: Number,
     required: false,
-    validate: {
-      validator: function(v) {
-        return v === undefined || v === null || v > 0;
-      },
-      message: 'original_price must be greater than 0'
-    }
+    // validate: {
+    //   validator: function(v) {
+    //     return v === undefined || v === null || v > 0;
+    //   },
+    //   message: 'original_price must be greater than 0'
+    // }
   },
   discounted_price: {
     type: Number,
-    required: true,
-    validate: {
-      validator: function(v) {
-        return v > 0;
-      },
-      message: 'discounted_price must be greater than 0'
-    }
+    required: false,
+    // validate: {
+    //   validator: function(v) {
+    //     return v > 0;
+    //   },
+    //   message: 'discounted_price must be greater than 0'
+    // }
   },
   discount_label: {
     type: String,
@@ -61,13 +61,14 @@ const productSchema = new mongoose.Schema({
     type: Date
   },
   metal_type: {
-    type: String,
-    required: true,
-    enum: [
-      "14K White Gold", "14K Yellow Gold", "14K Rose Gold",
-      "18K White Gold", "18K Yellow Gold", "18K Rose Gold",
-      "Platinum"
-    ]
+    type: [String],
+    default: [],
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v);
+      },
+      message: 'metal_type must be an array'
+    }
   },
   metal_code: {
     type: String,
@@ -84,24 +85,30 @@ const productSchema = new mongoose.Schema({
     default: 0
   },
   diamond_origin: {
-    type: String,
-    required: true,
-    enum: ["Natural", "Lab Grown"]
-  },
-  carat_weight: {
-    type: Number,
+    type: [String],
+    default: [],
     validate: {
       validator: function(v) {
-        return v === undefined || v === null || v === 0 || v > 0;
+        return Array.isArray(v);
       },
-      message: 'carat_weight must be greater than 0'
-    },
-    default: 0
+      message: 'diamond_origin must be an array'
+    }
+  },
+  carat_weight: {
+    type: [Number],
+    default: [],
+    validate: {
+      validator: function(v) {
+        if (!Array.isArray(v)) return false;
+        return v.every(weight => weight > 0);
+      },
+      message: 'All carat weights must be greater than 0'
+    }
   },
   diamond_quality: {
-    type: String,
+    type: [String],
     enum: ["Best - D, VVS", "Better - E, VS1", "Good - F, VS2"],
-    default: ''
+    default: []
   },
   diamond_color_grade: {
     type: String,
@@ -112,14 +119,22 @@ const productSchema = new mongoose.Schema({
     default: ''
   },
   ring_size: {
-    type: Number,
-    required: true,
-    min: 3,
-    max: 10
+    type: [Number],
+    default: [],
+    validate: {
+      validator: function(v) {
+        if (!Array.isArray(v)) return false;
+        return v.every(size => size >= 3 && size <= 10);
+      },
+      message: 'Ring sizes must be between 3 and 10'
+    }
+  },
+  necklace_size: {
+    type: [String],
+    default: []
   },
   engraving_text: {
     type: String,
-    maxLength: 15,
     default: ''
   },
   engraving_allowed: {
@@ -128,31 +143,60 @@ const productSchema = new mongoose.Schema({
   },
   back_type: {
     type: String,
-    enum: ["Push Back", "Screw Back", "Guardian Back"],
-    default: ''
+    default: null,
+    validate: {
+      validator: function(v) {
+        // Allow null, undefined, empty string, or valid enum values
+        return !v || ["Push Back", "Screw Back", "Guardian Back"].includes(v);
+      },
+      message: '{VALUE} is not a valid enum value for path `{PATH}`'
+    }
   },
   matching_band_available: {
     type: Boolean,
     default: false
   },
+  matching_band_product_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    default: null
+  },
   product_type: {
     type: String,
-    enum: ["Engagement Ring", "Earrings", "Pendant", "Bracelet"],
-    default: ''
+    default: null,
+    validate: {
+      validator: function(v) {
+        // Allow null, undefined, empty string, or valid enum values
+        return !v || ["Engagement Ring", "Earrings", "Pendant", "Bracelet"].includes(v);
+      },
+      message: '{VALUE} is not a valid enum value for path `{PATH}`'
+    }
   },
   collection_name: {
     type: String,
     default: ''
   },
   categoryId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: [mongoose.Schema.Types.ObjectId],
     ref: 'Category',
-    required: true
+    required: true,
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v) && v.length > 0;
+      },
+      message: 'At least one category is required'
+    }
   },
   subCategoryId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: [mongoose.Schema.Types.ObjectId],
     ref: 'SubCategory',
-    required: true
+    required: true,
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v) && v.length > 0;
+      },
+      message: 'At least one subcategory is required'
+    }
   },
   images: {
     type: [String],
@@ -177,6 +221,31 @@ const productSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  product_details: {
+    type: String,
+    default: ''
+  },
+  center_stone_details: {
+    type: String,
+    default: ''
+  },
+  side_stone_details: {
+    type: String,
+    default: ''
+  },
+  stone_details: {
+    type: String,
+    default: ''
+  },
+  variants:[
+    {
+      diamond_type: String,
+      carat_weight: String,
+      metal_type: String,
+      price: Number,
+      discounted_price: Number
+    }
+  ],
   isDeleted: {
     type: Boolean,
     default: false
@@ -185,10 +254,12 @@ const productSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for better query performance
-productSchema.index({ categoryId: 1, subCategoryId: 1 });
-productSchema.index({ product_id: 1 });
+productSchema.index({ categoryId: 1 });
+productSchema.index({ subCategoryId: 1 });
+productSchema.index({ product_id: 1 }, { unique: true });
 productSchema.index({ status: 1, isDeleted: 1 });
 
-module.exports = mongoose.model('Product', productSchema);
+const Product = mongoose.model('Product', productSchema);
+
+module.exports = Product;
 
