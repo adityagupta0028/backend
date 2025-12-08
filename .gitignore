@@ -2,7 +2,7 @@
 node_modules/
 uploads/
 bower_components/
-
+#######
 # Environment variables
 .env
 .env.local
