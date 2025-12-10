@@ -3,7 +3,6 @@ const Validation = require("../../validations");
 const constants = require("../../../common/constants");
 const mongoose = require("mongoose");
 
-
 module.exports.getProducts = async (req, res, next) => {
     try {
       // Get query parameters from both body and query (support both POST and GET)
