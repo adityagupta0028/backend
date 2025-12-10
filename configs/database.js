@@ -35,7 +35,6 @@
 
 // module.exports = connectToDB;
 
-
 require("dotenv").config();
 const mongoose = require("mongoose");
 
