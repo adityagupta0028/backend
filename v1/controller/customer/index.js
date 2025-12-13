@@ -1,5 +1,6 @@
 
 module.exports = {
-    ProductController: require("./Product")
+    ProductController: require("./Product"),
+    CategoryController: require("./Category")
 };
 
