@@ -7,7 +7,6 @@ module.exports.getToken = (data) =>
   jwt.sign(data, process.env.JWT_SECRET, {
     expiresIn: "730d"
   });
-
 module.exports.verifyToken = (token) =>
   jwt.verify(token, process.env.JWT_SECRET);
 

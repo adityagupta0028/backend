@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 module.exports.getProducts = async (req, res, next) => {
     try {
       // Get query parameters from both body and query (support both POST and GET)
-      const params = req.body || req.query || {};
+      const params = req.body 
       const {
         categoryId,
         subcategoryId,
@@ -204,3 +204,147 @@ module.exports.getProducts = async (req, res, next) => {
       next(error);
     }
   }
+
+module.exports.getProductDetails = async (req, res, next) => {
+  try {
+    // Get productId from query params or body
+    const { productId } = req.query || req.body || {};
+
+    if (!productId) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "Product ID is required"
+      });
+    }
+
+    // Build aggregation pipeline
+    const pipeline = [];
+
+    // Stage 1: Match stage - Filter product by ID
+    const matchStage = {
+      isDeleted: false,
+      status: "Active"
+    };
+
+    // Check if productId is a valid ObjectId (MongoDB _id) or product_id string
+    if (mongoose.Types.ObjectId.isValid(productId)) {
+      matchStage._id = new mongoose.Types.ObjectId(productId);
+    } else {
+      matchStage.product_id = productId;
+    }
+
+    pipeline.push({ $match: matchStage });
+
+    // Stage 2: Lookup categories
+    pipeline.push({
+      $lookup: {
+        from: 'categories',
+        localField: 'categoryId',
+        foreignField: '_id',
+        as: 'categories'
+      }
+    });
+
+    // Stage 3: Lookup subcategories
+    pipeline.push({
+      $lookup: {
+        from: 'subcategories',
+        localField: 'subCategoryId',
+        foreignField: '_id',
+        as: 'subcategories'
+      }
+    });
+
+    // Stage 4: Filter out deleted categories and subcategories
+    pipeline.push({
+      $addFields: {
+        categories: {
+          $filter: {
+            input: '$categories',
+            as: 'cat',
+            cond: { $eq: ['$$cat.isDeleted', false] }
+          }
+        },
+        subcategories: {
+          $filter: {
+            input: '$subcategories',
+            as: 'sub',
+            cond: { $eq: ['$$sub.isDeleted', false] }
+          }
+        }
+      }
+    });
+
+    // Stage 5: Project all product fields with categories and subcategories
+    pipeline.push({
+      $project: {
+        product_id: 1,
+        product_name: 1,
+        description: 1,
+        average_rating: 1,
+        review_count: 1,
+        original_price: 1,
+        discounted_price: 1,
+        discount_label: 1,
+        promotion_label: 1,
+        promotion_end_date: 1,
+        metal_type: 1,
+        metal_code: 1,
+        metal_price: 1,
+        diamond_origin: 1,
+        carat_weight: 1,
+        diamond_quality: 1,
+        diamond_color_grade: 1,
+        diamond_clarity_grade: 1,
+        ring_size: 1,
+        necklace_size: 1,
+        engraving_text: 1,
+        engraving_allowed: 1,
+        back_type: 1,
+        matching_band_available: 1,
+        matching_band_product_id: 1,
+        product_type: 1,
+        collection_name: 1,
+        images: 1,
+        videos: 1,
+        tags: 1,
+        product_details: 1,
+        center_stone_details: 1,
+        side_stone_details: 1,
+        stone_details: 1,
+        variants: 1,
+        categoryId: 1,
+        subCategoryId: 1,
+        categories: {
+          _id: 1,
+          title: 1,
+          categoryName: 1,
+          image: 1
+        },
+        subcategories: {
+          _id: 1,
+          title: 1,
+          subCategoryName: 1,
+          image: 1,
+          categoryId: 1
+        },
+        createdAt: 1,
+        updatedAt: 1
+      }
+    });
+
+    // Execute aggregation
+    const products = await Model.Product.aggregate(pipeline);
+
+    if (!products || products.length === 0) {
+      return res.error(404, constants.MESSAGES.NOT_FOUND, {
+        message: "Product not found"
+      });
+    }
+
+    return res.success(constants.MESSAGES.DATA_FETCHED, {
+      product: products[0]
+    });
+  } catch (error) {
+    next(error);
+  }
+}
