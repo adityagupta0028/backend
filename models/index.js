@@ -6,6 +6,10 @@ module.exports = {
     Category: require('./Category'),
     SubCategory: require('./SubCategory'),
     Product: require('./Product'),
-    BannerModel:require("./Banner")
+    BannerModel:require("./Banner"),
+    Customer: require('./Customer'),
+    Address: require('./Address'),
+    Cart: require('./Cart'),
+    Order: require('./Order')
 
 }
