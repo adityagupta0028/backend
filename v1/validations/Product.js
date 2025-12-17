@@ -17,7 +17,7 @@ module.exports.createProduct = Joi.object({
   average_rating: Joi.number().min(0).max(5).optional(),
   review_count: Joi.number().integer().min(0).optional(),
   original_price: Joi.number().greater(0).optional(),
-  discounted_price: Joi.number().greater(0).required(),
+  //discounted_price: Joi.number().greater(0).required(),
   discount_label: Joi.string().optional().allow(''),
   promotion_label: Joi.string().optional().allow(''),
   promotion_end_date: Joi.date().optional(),
