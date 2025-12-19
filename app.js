@@ -25,7 +25,22 @@ if (process.env.NODE_ENV == "dev") {
   server = require("http").createServer(app);
 }
 const apiRouter = express.Router();
-app.use(cors());
+
+
+app.use(cors({
+  origin: [
+    'https://admin.merefunds.in'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Handle preflight requests
+app.options('*', cors());
+
+
+
 app.use(responses());
 app.use(logger("dev"));
 app.use(bodyParser.json());
@@ -46,13 +61,7 @@ app.use("/uploads", express.static("uploads"));
 // 404, Not Found
 app.use((req, res, next) => res.error(404, "NOT_FOUND"));
 
-app.use(function (req, res, next) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin,X-Requested-With,content-type');
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  next();
-});
+
 
 app.use((error, req, res, next) => {
   return res.error(400, error.message || error);
