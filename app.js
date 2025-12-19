@@ -27,12 +27,37 @@ if (process.env.NODE_ENV == "dev") {
 const apiRouter = express.Router();
 
 
-app.use(cors({
-  origin: ['https://admin.merefunds.in'],
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://admin.merefunds.in',
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+    
+    // Check if origin is in allowed list or contains admin.merefunds.in
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('admin.merefunds.in')) {
+      callback(null, true);
+    } else {
+      // For development, you might want to allow all origins
+      // For production, uncomment the line below to block unauthorized origins
+      // callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Temporarily allow all for debugging
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
 
 
 app.use(responses());
