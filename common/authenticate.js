@@ -38,6 +38,13 @@ module.exports.verify = (...args) => async (req, res, next) => {
         _id: decoded._id,
       });
     }
+    if (decoded != null && roles.includes("customer")) {
+      role = "customer";
+      doc = await Model.Customer.findOne({
+        _id: decoded._id,
+        isDeleted: false,
+      });
+    }
     if (!doc) {
       return res.status(401).send({
         "statusCode": 401,

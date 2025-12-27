@@ -16,6 +16,8 @@ router.get("/getCategoryDetail", Controller.CategoryController.getCategoryDetail
 // Customer Authentication Routes
 router.post("/signup", upload.single('image'), Controller.CustomerController.signup);
 router.post("/login", Controller.CustomerController.login);
+router.post("/google-login", Controller.CustomerController.googleLogin);
+router.post("/facebook-login", Controller.CustomerController.facebookLogin);
 router.post("/logout", Auth.verify("Customer"), Controller.CustomerController.logout);
 router.get("/getProfile", Auth.verify("Customer"), Controller.CustomerController.getProfile);
 router.post("/updateProfile", Auth.verify("Customer"), upload.single('image'), Controller.CustomerController.updateProfile);

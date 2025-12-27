@@ -21,7 +21,19 @@ const customerSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: function() {
+      return !this.googleId && !this.facebookId;
+    }
+  },
+  googleId: {
+    type: String,
+    default: null,
+    sparse: true
+  },
+  facebookId: {
+    type: String,
+    default: null,
+    sparse: true
   },
   image: {
     type: String,
