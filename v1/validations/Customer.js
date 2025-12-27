@@ -10,14 +10,27 @@ const Joi = require("joi").defaults((schema) => {
 Joi.objectId = () => Joi.string().pattern(/^[0-9a-f]{24}$/, "valid ObjectId");
 
 module.exports.signup = Joi.object({
-  name: Joi.string().required(),
+  name: Joi.string().optional(),
+  firstName: Joi.string().optional(),
+  lastName: Joi.string().optional(),
   email: Joi.string().email().required().messages({
     'string.email': 'Please enter a valid email',
     'any.required': 'Email is required',
   }),
-  password: Joi.string().min(8).max(30).required(),
+  password: Joi.string().min(6).max(30).required().messages({
+    'string.min': 'Password must be at least 6 characters long',
+    'any.required': 'Password is required',
+  }),
   phone_number: Joi.string().optional().allow(''),
   image: Joi.string().optional().allow(''),
+}).custom((value, helpers) => {
+  // If name is not provided, firstName and lastName are required
+  if (!value.name && (!value.firstName || !value.lastName)) {
+    return helpers.error('any.custom', {
+      message: 'Either name or both firstName and lastName are required'
+    });
+  }
+  return value;
 });
 
 module.exports.login = Joi.object({
