@@ -9,7 +9,6 @@ require('dotenv').config();
 const responses = require("./common/responses");
 
 
-
 const app = express();
 const PORT = process.env.PORT || 8081;
 let server
