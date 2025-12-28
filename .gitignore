@@ -10,7 +10,7 @@ bun.lockb
 
 # ---------------------
 # Environment Variables
-# ---------------------
+# ---------------------uploads
 .env
 .env.*
 !.env.example
@@ -54,7 +54,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-uploads/
+
 # ---------------------
 # Coverage / Testing
 # ---------------------
