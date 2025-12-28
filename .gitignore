@@ -2,6 +2,7 @@
 # Node.js Essentials
 # ---------------------
 node_modules/
+uploads/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
