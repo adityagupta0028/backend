@@ -246,6 +246,66 @@ const productSchema = new mongoose.Schema({
       discounted_price: Number
     }
   ],
+  settingConfigurations:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'setting_configurations',
+   required: true
+  },
+  shankConfigurations:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'shank_configurations',
+    required: true
+  },
+  holdingMethods:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'holding_methods',
+    required: true
+  },
+  bandProfileShapes:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'band_profile_shapes',
+    required: true
+  },
+  bandWidthCategories:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'band_width_categories',
+    required: true
+  },
+  bandFits:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'band_fits',
+    required: true
+  },
+  shankTreatments:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'shank_treatments',
+    required: true
+  },
+  styles:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'styles',
+    required: true
+  },
+  settingFeatures:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'setting_features',
+    required: true
+  },
+  motifThemes:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'motif_themes',
+    required: true
+  },
+  ornamentDetails:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'ornament_details',
+    required: true
+  },
+  accentStoneShapes:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'accent_stone_shapes',
+      required: true
+  },
   isDeleted: {
     type: Boolean,
     default: false

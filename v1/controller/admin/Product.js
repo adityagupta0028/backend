@@ -181,6 +181,139 @@ if (req.body.variants) {
       }
     }
 
+    // Validate radio button fields (single ObjectId)
+    if (req.body.settingConfigurations) {
+      const settingConfig = await Model.SettingConfigurations.findOne({
+        _id: req.body.settingConfigurations,
+        isDeleted: false
+      });
+      if (!settingConfig) {
+        throw new Error("Setting configuration not found");
+      }
+    }
+
+    if (req.body.shankConfigurations) {
+      const shankConfig = await Model.ShankConfigurations.findOne({
+        _id: req.body.shankConfigurations,
+        isDeleted: false
+      });
+      if (!shankConfig) {
+        throw new Error("Shank configuration not found");
+      }
+    }
+
+    if (req.body.holdingMethods) {
+      const holdingMethod = await Model.HoldingMethods.findOne({
+        _id: req.body.holdingMethods,
+        isDeleted: false
+      });
+      if (!holdingMethod) {
+        throw new Error("Holding method not found");
+      }
+    }
+
+    if (req.body.bandProfileShapes) {
+      const bandProfileShape = await Model.BandProfileShapes.findOne({
+        _id: req.body.bandProfileShapes,
+        isDeleted: false
+      });
+      if (!bandProfileShape) {
+        throw new Error("Band profile shape not found");
+      }
+    }
+
+    if (req.body.bandWidthCategories) {
+      const bandWidthCategory = await Model.BandWidthCategories.findOne({
+        _id: req.body.bandWidthCategories,
+        isDeleted: false
+      });
+      if (!bandWidthCategory) {
+        throw new Error("Band width category not found");
+      }
+    }
+
+    if (req.body.bandFits) {
+      const bandFit = await Model.BandFits.findOne({
+        _id: req.body.bandFits,
+        isDeleted: false
+      });
+      if (!bandFit) {
+        throw new Error("Band fit not found");
+      }
+    }
+
+    // Normalize and validate multi-select dropdown fields (array of ObjectIds)
+    const normalizeObjectIdArray = (value) => {
+      if (!value) return value;
+      return Array.isArray(value) ? value : [value];
+    };
+
+    if (req.body.shankTreatments) {
+      req.body.shankTreatments = normalizeObjectIdArray(req.body.shankTreatments);
+      const shankTreatments = await Model.ShankTreatments.find({
+        _id: { $in: req.body.shankTreatments },
+        isDeleted: false
+      });
+      if (shankTreatments.length !== req.body.shankTreatments.length) {
+        throw new Error("One or more shank treatments not found");
+      }
+    }
+
+    if (req.body.styles) {
+      req.body.styles = normalizeObjectIdArray(req.body.styles);
+      const styles = await Model.Styles.find({
+        _id: { $in: req.body.styles },
+        isDeleted: false
+      });
+      if (styles.length !== req.body.styles.length) {
+        throw new Error("One or more styles not found");
+      }
+    }
+
+    if (req.body.settingFeatures) {
+      req.body.settingFeatures = normalizeObjectIdArray(req.body.settingFeatures);
+      const settingFeatures = await Model.SettingFeatures.find({
+        _id: { $in: req.body.settingFeatures },
+        isDeleted: false
+      });
+      if (settingFeatures.length !== req.body.settingFeatures.length) {
+        throw new Error("One or more setting features not found");
+      }
+    }
+
+    if (req.body.motifThemes) {
+      req.body.motifThemes = normalizeObjectIdArray(req.body.motifThemes);
+      const motifThemes = await Model.MotifThemes.find({
+        _id: { $in: req.body.motifThemes },
+        isDeleted: false
+      });
+      if (motifThemes.length !== req.body.motifThemes.length) {
+        throw new Error("One or more motif themes not found");
+      }
+    }
+
+    if (req.body.ornamentDetails) {
+      req.body.ornamentDetails = normalizeObjectIdArray(req.body.ornamentDetails);
+      const ornamentDetails = await Model.OrnamentDetails.find({
+        _id: { $in: req.body.ornamentDetails },
+        isDeleted: false
+      });
+      if (ornamentDetails.length !== req.body.ornamentDetails.length) {
+        throw new Error("One or more ornament details not found");
+      }
+    }
+
+    if (req.body.accentStoneShapes) {
+      req.body.accentStoneShapes = normalizeObjectIdArray(req.body.accentStoneShapes);
+      const accentStoneShapes = await Model.AccentStoneShapes.find({
+        _id: { $in: req.body.accentStoneShapes },
+        isDeleted: false
+      });
+      if (accentStoneShapes.length !== req.body.accentStoneShapes.length) {
+        throw new Error("One or more accent stone shapes not found");
+      }
+    }
+
     // Validate matching band product ID if matching band is available
     if (req.body.matching_band_available && req.body.matching_band_product_id) {
       const matchingProduct = await Model.Product.findOne({
@@ -232,7 +365,22 @@ if (req.body.variants) {
    
     
     let product = await Model.Product.create(req.body);
-    await product.populate('categoryId subCategoryId');
+    await product.populate([
+      'categoryId',
+      'subCategoryId',
+      'settingConfigurations',
+      'shankConfigurations',
+      'holdingMethods',
+      'bandProfileShapes',
+      'bandWidthCategories',
+      'bandFits',
+      'shankTreatments',
+      'styles',
+      'settingFeatures',
+      'motifThemes',
+      'ornamentDetails',
+      'accentStoneShapes'
+    ]);
     
     return res.success(constants.MESSAGES.DATA_UPLOADED, product);
   } catch (error) {
@@ -288,7 +436,22 @@ module.exports.getProducts = async (req, res, next) => {
     }
     
     let products = await Model.Product.find(query)
-      .populate('categoryId subCategoryId')
+      .populate([
+        'categoryId',
+        'subCategoryId',
+        'settingConfigurations',
+        'shankConfigurations',
+        'holdingMethods',
+        'bandProfileShapes',
+        'bandWidthCategories',
+        'bandFits',
+        'shankTreatments',
+        'styles',
+        'settingFeatures',
+        'motifThemes',
+        'ornamentDetails',
+        'accentStoneShapes'
+      ])
       .sort({ createdAt: -1 });
     
     return res.success(constants.MESSAGES.DATA_FETCHED, products);
@@ -303,7 +466,22 @@ module.exports.getProductDetail = async (req, res, next) => {
     let product = await Model.Product.findOne({
       _id: req.params.id,
       isDeleted: false
-    }).populate('categoryId subCategoryId');
+    }).populate([
+      'categoryId',
+      'subCategoryId',
+      'settingConfigurations',
+      'shankConfigurations',
+      'holdingMethods',
+      'bandProfileShapes',
+      'bandWidthCategories',
+      'bandFits',
+      'shankTreatments',
+      'styles',
+      'settingFeatures',
+      'motifThemes',
+      'ornamentDetails',
+      'accentStoneShapes'
+    ]);
     
     if (!product) {
       throw new Error(constants.MESSAGES.NOT_FOUND);
@@ -321,7 +499,22 @@ module.exports.getProductByProductId = async (req, res, next) => {
     let product = await Model.Product.findOne({
       product_id: req.params.product_id,
       isDeleted: false
-    }).populate('categoryId subCategoryId');
+    }).populate([
+      'categoryId',
+      'subCategoryId',
+      'settingConfigurations',
+      'shankConfigurations',
+      'holdingMethods',
+      'bandProfileShapes',
+      'bandWidthCategories',
+      'bandFits',
+      'shankTreatments',
+      'styles',
+      'settingFeatures',
+      'motifThemes',
+      'ornamentDetails',
+      'accentStoneShapes'
+    ]);
     
     if (!product) {
       throw new Error(constants.MESSAGES.NOT_FOUND);
@@ -416,6 +609,139 @@ module.exports.updateProduct = async (req, res, next) => {
       }
     }
 
+    // Validate radio button fields (single ObjectId) if being updated
+    if (req.body.settingConfigurations) {
+      const settingConfig = await Model.SettingConfigurations.findOne({
+        _id: req.body.settingConfigurations,
+        isDeleted: false
+      });
+      if (!settingConfig) {
+        throw new Error("Setting configuration not found");
+      }
+    }
+
+    if (req.body.shankConfigurations) {
+      const shankConfig = await Model.ShankConfigurations.findOne({
+        _id: req.body.shankConfigurations,
+        isDeleted: false
+      });
+      if (!shankConfig) {
+        throw new Error("Shank configuration not found");
+      }
+    }
+
+    if (req.body.holdingMethods) {
+      const holdingMethod = await Model.HoldingMethods.findOne({
+        _id: req.body.holdingMethods,
+        isDeleted: false
+      });
+      if (!holdingMethod) {
+        throw new Error("Holding method not found");
+      }
+    }
+
+    if (req.body.bandProfileShapes) {
+      const bandProfileShape = await Model.BandProfileShapes.findOne({
+        _id: req.body.bandProfileShapes,
+        isDeleted: false
+      });
+      if (!bandProfileShape) {
+        throw new Error("Band profile shape not found");
+      }
+    }
+
+    if (req.body.bandWidthCategories) {
+      const bandWidthCategory = await Model.BandWidthCategories.findOne({
+        _id: req.body.bandWidthCategories,
+        isDeleted: false
+      });
+      if (!bandWidthCategory) {
+        throw new Error("Band width category not found");
+      }
+    }
+
+    if (req.body.bandFits) {
+      const bandFit = await Model.BandFits.findOne({
+        _id: req.body.bandFits,
+        isDeleted: false
+      });
+      if (!bandFit) {
+        throw new Error("Band fit not found");
+      }
+    }
+
+    // Normalize and validate multi-select dropdown fields (array of ObjectIds) if being updated
+    const normalizeObjectIdArray = (value) => {
+      if (!value) return value;
+      return Array.isArray(value) ? value : [value];
+    };
+
+    if (req.body.shankTreatments) {
+      req.body.shankTreatments = normalizeObjectIdArray(req.body.shankTreatments);
+      const shankTreatments = await Model.ShankTreatments.find({
+        _id: { $in: req.body.shankTreatments },
+        isDeleted: false
+      });
+      if (shankTreatments.length !== req.body.shankTreatments.length) {
+        throw new Error("One or more shank treatments not found");
+      }
+    }
+
+    if (req.body.styles) {
+      req.body.styles = normalizeObjectIdArray(req.body.styles);
+      const styles = await Model.Styles.find({
+        _id: { $in: req.body.styles },
+        isDeleted: false
+      });
+      if (styles.length !== req.body.styles.length) {
+        throw new Error("One or more styles not found");
+      }
+    }
+
+    if (req.body.settingFeatures) {
+      req.body.settingFeatures = normalizeObjectIdArray(req.body.settingFeatures);
+      const settingFeatures = await Model.SettingFeatures.find({
+        _id: { $in: req.body.settingFeatures },
+        isDeleted: false
+      });
+      if (settingFeatures.length !== req.body.settingFeatures.length) {
+        throw new Error("One or more setting features not found");
+      }
+    }
+
+    if (req.body.motifThemes) {
+      req.body.motifThemes = normalizeObjectIdArray(req.body.motifThemes);
+      const motifThemes = await Model.MotifThemes.find({
+        _id: { $in: req.body.motifThemes },
+        isDeleted: false
+      });
+      if (motifThemes.length !== req.body.motifThemes.length) {
+        throw new Error("One or more motif themes not found");
+      }
+    }
+
+    if (req.body.ornamentDetails) {
+      req.body.ornamentDetails = normalizeObjectIdArray(req.body.ornamentDetails);
+      const ornamentDetails = await Model.OrnamentDetails.find({
+        _id: { $in: req.body.ornamentDetails },
+        isDeleted: false
+      });
+      if (ornamentDetails.length !== req.body.ornamentDetails.length) {
+        throw new Error("One or more ornament details not found");
+      }
+    }
+
+    if (req.body.accentStoneShapes) {
+      req.body.accentStoneShapes = normalizeObjectIdArray(req.body.accentStoneShapes);
+      const accentStoneShapes = await Model.AccentStoneShapes.find({
+        _id: { $in: req.body.accentStoneShapes },
+        isDeleted: false
+      });
+      if (accentStoneShapes.length !== req.body.accentStoneShapes.length) {
+        throw new Error("One or more accent stone shapes not found");
+      }
+    }
+
     // Validate matching band product ID if matching band is available
     if (req.body.matching_band_available !== undefined) {
       if (req.body.matching_band_available && req.body.matching_band_product_id) {
@@ -465,7 +791,22 @@ module.exports.updateProduct = async (req, res, next) => {
     
     Object.assign(product, req.body);
     await product.save();
-    await product.populate('categoryId subCategoryId');
+    await product.populate([
+      'categoryId',
+      'subCategoryId',
+      'settingConfigurations',
+      'shankConfigurations',
+      'holdingMethods',
+      'bandProfileShapes',
+      'bandWidthCategories',
+      'bandFits',
+      'shankTreatments',
+      'styles',
+      'settingFeatures',
+      'motifThemes',
+      'ornamentDetails',
+      'accentStoneShapes'
+    ]);
     
     return res.success(constants.MESSAGES.UPDATED_SUCCESSFULLY, product);
   } catch (error) {

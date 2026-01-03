@@ -5,6 +5,7 @@ module.exports = {
     TeamManagementController: require("./TeamManagement"),
     CategoryController: require("./Category"),
     ProductController: require("./Product"),
-    BannerController: require("./Banner")
+    BannerController: require("./Banner"),
+    ProductAttributesController: require("./ProductAttributes")
 };
 

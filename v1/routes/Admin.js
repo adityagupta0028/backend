@@ -61,6 +61,54 @@ router.get("/getBannerById/:id", Auth.verify("admin"), Controller.BannerControll
 router.put("/updateBanner/:id", Auth.verify("admin"),upload.any(), Controller.BannerController.updateBanner);
 router.delete("/deleteBanner/:id", Auth.verify("admin"), Controller.BannerController.deleteBanner);
 
+// BandFits Routes
+router.post("/createBandFit", Auth.verify("Admin"), Controller.ProductAttributesController.createBandFit);
+router.get("/getBandFits", Controller.ProductAttributesController.getBandFits);
+
+// BandProfileShapes Routes
+router.post("/createBandProfileShape", Auth.verify("Admin"), Controller.ProductAttributesController.createBandProfileShape);
+router.get("/getBandProfileShapes", Controller.ProductAttributesController.getBandProfileShapes);
+
+// BandWidthCategories Routes
+router.post("/createBandWidthCategory", Auth.verify("Admin"), Controller.ProductAttributesController.createBandWidthCategory);
+router.get("/getBandWidthCategories", Controller.ProductAttributesController.getBandWidthCategories);
+
+// HoldingMethods Routes
+router.post("/createHoldingMethod", Auth.verify("Admin"), Controller.ProductAttributesController.createHoldingMethod);
+router.get("/getHoldingMethods", Controller.ProductAttributesController.getHoldingMethods);
+
+// SettingConfigurations Routes
+router.post("/createSettingConfiguration", Auth.verify("Admin"), Controller.ProductAttributesController.createSettingConfiguration);
+router.get("/getSettingConfigurations", Controller.ProductAttributesController.getSettingConfigurations);
+
+// ShankConfigurations Routes
+router.post("/createShankConfiguration", Auth.verify("Admin"), Controller.ProductAttributesController.createShankConfiguration);
+router.get("/getShankConfigurations", Controller.ProductAttributesController.getShankConfigurations);
+
+// ShankTreatments Routes
+router.post("/createShankTreatment", Auth.verify("Admin"), Controller.ProductAttributesController.createShankTreatment);
+router.get("/getShankTreatments", Controller.ProductAttributesController.getShankTreatments);
+
+// Styles Routes
+router.post("/createStyle", Auth.verify("Admin"), Controller.ProductAttributesController.createStyle);
+router.get("/getStyles", Controller.ProductAttributesController.getStyles);
+
+// SettingFeatures Routes
+router.post("/createSettingFeature", Auth.verify("Admin"), Controller.ProductAttributesController.createSettingFeature);
+router.get("/getSettingFeatures", Controller.ProductAttributesController.getSettingFeatures);
+
+// MotifThemes Routes
+router.post("/createMotifTheme", Auth.verify("Admin"), Controller.ProductAttributesController.createMotifTheme);
+router.get("/getMotifThemes", Controller.ProductAttributesController.getMotifThemes);
+
+// OrnamentDetails Routes
+router.post("/createOrnamentDetail", Auth.verify("Admin"), Controller.ProductAttributesController.createOrnamentDetail);
+router.get("/getOrnamentDetails", Controller.ProductAttributesController.getOrnamentDetails);
+
+// AccentStoneShapes Routes
+router.post("/createAccentStoneShape", Auth.verify("Admin"), Controller.ProductAttributesController.createAccentStoneShape);
+router.get("/getAccentStoneShapes", Controller.ProductAttributesController.getAccentStoneShapes);
+
 
 
 module.exports = router
