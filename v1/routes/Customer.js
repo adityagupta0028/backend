@@ -33,6 +33,7 @@ router.post("/setDefaultAddress/:id", Auth.verify("Customer"), Controller.Addres
 // Cart Routes
 router.get("/getCart", Auth.verify("Customer"), Controller.CartController.getCart);
 router.post("/addToCart", Auth.verify("Customer"), Controller.CartController.addToCart);
+router.post("/syncCart", Auth.verify("Customer"), Controller.CartController.syncCart);
 router.post("/updateCartItem/:itemId", Auth.verify("Customer"), Controller.CartController.updateCartItem);
 router.delete("/removeFromCart/:itemId", Auth.verify("Customer"), Controller.CartController.removeFromCart);
 router.delete("/clearCart", Auth.verify("Customer"), Controller.CartController.clearCart);

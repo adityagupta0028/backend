@@ -82,6 +82,27 @@ module.exports.updateCartItem = Joi.object({
   quantity: Joi.number().min(1).required(),
 });
 
+module.exports.syncCart = Joi.object({
+  items: Joi.array().items(
+    Joi.object({
+      productId: Joi.objectId().required(),
+      product_id: Joi.string().optional(),
+      quantity: Joi.number().min(1).optional().default(1),
+      price: Joi.number().min(0).optional(),
+      discountedPrice: Joi.number().min(0).optional().allow(null),
+      selectedVariant: Joi.object({
+        diamond_type: Joi.string().optional(),
+        carat_weight: Joi.string().optional(),
+        metal_type: Joi.string().optional(),
+        ring_size: Joi.number().optional(),
+        necklace_size: Joi.string().optional(),
+        back_type: Joi.string().optional(),
+      }).optional(),
+      engraving_text: Joi.string().optional().allow(''),
+    })
+  ).required(),
+});
+
 module.exports.checkout = Joi.object({
   addressId: Joi.objectId().required(),
   paymentMethod: Joi.string().valid('stripe', 'cash_on_delivery', 'bank_transfer').required(),

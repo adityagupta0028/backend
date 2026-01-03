@@ -89,7 +89,39 @@ module.exports.createProduct = Joi.object({
       price: Joi.number().greater(0).required(),
       discounted_price: Joi.number().greater(0).required()
     })
-  ).optional()
+  ).optional(),
+  // Radio button fields (single ObjectId)
+  settingConfigurations: Joi.objectId().required(),
+  shankConfigurations: Joi.objectId().required(),
+  holdingMethods: Joi.objectId().required(),
+  bandProfileShapes: Joi.objectId().required(),
+  bandWidthCategories: Joi.objectId().required(),
+  bandFits: Joi.objectId().required(),
+  // Multi-select dropdown fields (array of ObjectIds)
+  shankTreatments: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  styles: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  settingFeatures: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  motifThemes: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  ornamentDetails: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  accentStoneShapes: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required()
 });
 
 // Update Product
@@ -163,6 +195,38 @@ module.exports.updateProduct = Joi.object({
   tags: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()
+  ).optional(),
+  // Radio button fields (single ObjectId)
+  settingConfigurations: Joi.objectId().optional(),
+  shankConfigurations: Joi.objectId().optional(),
+  holdingMethods: Joi.objectId().optional(),
+  bandProfileShapes: Joi.objectId().optional(),
+  bandWidthCategories: Joi.objectId().optional(),
+  bandFits: Joi.objectId().optional(),
+  // Multi-select dropdown fields (array of ObjectIds)
+  shankTreatments: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).optional(),
+  styles: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).optional(),
+  settingFeatures: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).optional(),
+  motifThemes: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).optional(),
+  ornamentDetails: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).optional(),
+  accentStoneShapes: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
   ).optional()
 });
 
