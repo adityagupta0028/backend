@@ -2,14 +2,14 @@ const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
 const mongoose = require('mongoose');
+const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 
 module.exports.addBanner = async (req, res, next) => {
   try {
     let homePageBanner1 = "";
     let homePageBanner2 = "";
     let bannerPage3 = ""
-    console.log("req.files====>",req.files);
-    console.log("req.file===>",req.file)
+   
     req.files.forEach(file => {
       if (file.fieldname === "home_image1") {
         homePageBanner1 = "/" + file.path;

@@ -6,6 +6,7 @@ module.exports = {
     CategoryController: require("./Category"),
     ProductController: require("./Product"),
     BannerController: require("./Banner"),
-    ProductAttributesController: require("./ProductAttributes")
+    ProductAttributesController: require("./ProductAttributes"),
+    FilterController: require("./Filter")
 };
 

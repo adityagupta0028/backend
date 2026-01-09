@@ -49,6 +49,8 @@ router.post("/createPaymentIntent", Auth.verify("Customer"), Controller.StripeCo
 router.post("/confirmPayment", Auth.verify("Customer"), Controller.StripeController.confirmPayment);
 router.get("/getPaymentStatus/:orderId", Auth.verify("Customer"), Controller.StripeController.getPaymentStatus);
 
+// Filter Visibility Routes
+router.get("/getFilteredVisibility", Controller.ProductController.getFilteredVisibility);
 
 module.exports = router;
 

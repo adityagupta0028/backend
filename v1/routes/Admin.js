@@ -3,7 +3,7 @@ const Auth = require("../../common/authenticate");
 const upload = require("../../services/uploadServices");
 const router = require('express').Router();
 
-
+router.post("/uploadFileS3", upload.single("file"), Controller.AdminController.uploadFileS3);
 router.post("/signup",upload.single('image'), Controller.AdminController.signup)
 router.post("/login", Controller.AdminController.login)
 router.post("/logout",Auth.verify("Admin"), Controller.AdminController.logout)
@@ -47,11 +47,11 @@ router.post("/updateSubCategory/:id", Auth.verify("Admin"), upload.single('image
 router.delete("/deleteSubCategory/:id", Auth.verify("Admin"), Controller.CategoryController.deleteSubCategory);
 
 // Product Routes
-router.post("/createProduct", Auth.verify("Admin"), upload.array('images', 10), Controller.ProductController.createProduct);
+router.post("/createProduct", Auth.verify("Admin"), upload.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 5 }]), Controller.ProductController.createProduct);
 router.get("/getProducts", Controller.ProductController.getProducts);
 router.get("/getProductDetail/:id", Controller.ProductController.getProductDetail);
 router.get("/getProductByProductId/:product_id", Controller.ProductController.getProductByProductId);
-router.post("/updateProduct/:id", Auth.verify("Admin"), upload.array('images', 10), Controller.ProductController.updateProduct);
+router.post("/updateProduct/:id", Auth.verify("Admin"), upload.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 5 }]), Controller.ProductController.updateProduct);
 router.delete("/deleteProduct/:id", Auth.verify("Admin"), Controller.ProductController.deleteProduct);
 
 //banner
@@ -62,52 +62,57 @@ router.put("/updateBanner/:id", Auth.verify("admin"),upload.any(), Controller.Ba
 router.delete("/deleteBanner/:id", Auth.verify("admin"), Controller.BannerController.deleteBanner);
 
 // BandFits Routes
-router.post("/createBandFit", Auth.verify("Admin"), Controller.ProductAttributesController.createBandFit);
+router.post("/createBandFit", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createBandFit);
 router.get("/getBandFits", Controller.ProductAttributesController.getBandFits);
 
 // BandProfileShapes Routes
-router.post("/createBandProfileShape", Auth.verify("Admin"), Controller.ProductAttributesController.createBandProfileShape);
+router.post("/createBandProfileShape", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createBandProfileShape);
 router.get("/getBandProfileShapes", Controller.ProductAttributesController.getBandProfileShapes);
 
 // BandWidthCategories Routes
-router.post("/createBandWidthCategory", Auth.verify("Admin"), Controller.ProductAttributesController.createBandWidthCategory);
+router.post("/createBandWidthCategory", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createBandWidthCategory);
 router.get("/getBandWidthCategories", Controller.ProductAttributesController.getBandWidthCategories);
 
 // HoldingMethods Routes
-router.post("/createHoldingMethod", Auth.verify("Admin"), Controller.ProductAttributesController.createHoldingMethod);
+router.post("/createHoldingMethod", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createHoldingMethod);
 router.get("/getHoldingMethods", Controller.ProductAttributesController.getHoldingMethods);
 
 // SettingConfigurations Routes
-router.post("/createSettingConfiguration", Auth.verify("Admin"), Controller.ProductAttributesController.createSettingConfiguration);
+router.post("/createSettingConfiguration", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createSettingConfiguration);
 router.get("/getSettingConfigurations", Controller.ProductAttributesController.getSettingConfigurations);
 
 // ShankConfigurations Routes
-router.post("/createShankConfiguration", Auth.verify("Admin"), Controller.ProductAttributesController.createShankConfiguration);
+router.post("/createShankConfiguration", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createShankConfiguration);
 router.get("/getShankConfigurations", Controller.ProductAttributesController.getShankConfigurations);
 
 // ShankTreatments Routes
-router.post("/createShankTreatment", Auth.verify("Admin"), Controller.ProductAttributesController.createShankTreatment);
+router.post("/createShankTreatment", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createShankTreatment);
 router.get("/getShankTreatments", Controller.ProductAttributesController.getShankTreatments);
 
 // Styles Routes
-router.post("/createStyle", Auth.verify("Admin"), Controller.ProductAttributesController.createStyle);
+router.post("/createStyle", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createStyle);
 router.get("/getStyles", Controller.ProductAttributesController.getStyles);
 
 // SettingFeatures Routes
-router.post("/createSettingFeature", Auth.verify("Admin"), Controller.ProductAttributesController.createSettingFeature);
+router.post("/createSettingFeature", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createSettingFeature);
 router.get("/getSettingFeatures", Controller.ProductAttributesController.getSettingFeatures);
 
 // MotifThemes Routes
-router.post("/createMotifTheme", Auth.verify("Admin"), Controller.ProductAttributesController.createMotifTheme);
+router.post("/createMotifTheme", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createMotifTheme);
 router.get("/getMotifThemes", Controller.ProductAttributesController.getMotifThemes);
 
 // OrnamentDetails Routes
-router.post("/createOrnamentDetail", Auth.verify("Admin"), Controller.ProductAttributesController.createOrnamentDetail);
+router.post("/createOrnamentDetail", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createOrnamentDetail);
 router.get("/getOrnamentDetails", Controller.ProductAttributesController.getOrnamentDetails);
 
 // AccentStoneShapes Routes
-router.post("/createAccentStoneShape", Auth.verify("Admin"), Controller.ProductAttributesController.createAccentStoneShape);
+router.post("/createAccentStoneShape", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createAccentStoneShape);
 router.get("/getAccentStoneShapes", Controller.ProductAttributesController.getAccentStoneShapes);
+
+// Filter Visibility Routes
+router.get("/getFilterVisibility", Auth.verify("Admin"), Controller.FilterController.getFilterVisibility);
+router.post("/updateFilterVisibility", Auth.verify("Admin"), Controller.FilterController.updateFilterVisibility);
+router.post("/updateFilterImage", Auth.verify("Admin"), upload.single('image'), Controller.FilterController.updateFilterImage);
 
 
 

@@ -27,6 +27,7 @@ module.exports.createProduct = Joi.object({
   ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
+  viewAngle: Joi.string().valid("Angled view", "Top view", "Side view").optional().allow(''),
   diamond_origin: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()
@@ -142,6 +143,7 @@ module.exports.updateProduct = Joi.object({
   ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
+  viewAngle: Joi.string().valid("Angled view", "Top view", "Side view").optional().allow(''),
   diamond_origin: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()

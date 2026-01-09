@@ -7,7 +7,7 @@ const path = require("path");
 require('dotenv').config();
  const v1Routes = require("./v1/routes/index");
 const responses = require("./common/responses");
-
+const s3Routes = require("./v1/routes/S3Bucket");
 const app = express();
 const PORT = process.env.PORT || 8081;
 let server
@@ -74,6 +74,7 @@ app.use("/api/v1", v1Routes);
 app.use(express.static(path.join(__dirname, '/public')));
 app.use('/public/files', express.static(__dirname + "/public/files"));
 app.use("/uploads", express.static("uploads"));
+app.use("/uploads", s3Routes);
 
 // 404, Not Found
 app.use((req, res, next) => res.error(404, "NOT_FOUND"));

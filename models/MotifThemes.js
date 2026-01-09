@@ -10,6 +10,10 @@ const mongoose = require('mongoose');
     type: String,
     required: true
   },
+  image: {
+    type: String,
+    default: ''
+  },
   isDeleted: {
     type: Boolean,
     default: false

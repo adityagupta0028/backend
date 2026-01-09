@@ -1,12 +1,15 @@
 const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
+const { uploadFileToS3 } = require("../../../services/uploadS3Service");
+
 
 module.exports.addUser = async (req, res, next) => {
   try {
     await Validation.Admin.addUser.validateAsync(req.body);
     if (req.file) {
       req.body.image = "/uploads/" + req.file.filename;
+
     }
     // TODO: Implement addUser logic with User model
     return res.success(constants.MESSAGES.DATA_UPLOADED, { message: "User added successfully" });

@@ -10,6 +10,10 @@ const bandProfileShapesSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  image: {
+    type: String,
+    default: ''
+  },
   isDeleted: {
     type: Boolean,
     default: false

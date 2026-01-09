@@ -22,6 +22,7 @@ module.exports = {
     SettingFeatures: require('./SettingFeatures'),
     MotifThemes: require('./MotifThemes'),
     OrnamentDetails: require('./OrnamentDetails'),
-    AccentStoneShapes: require('./AccentStoneShapes')
+    AccentStoneShapes: require('./AccentStoneShapes'),
+    FilterVisibility: require('./FilterVisibility')
 
 }

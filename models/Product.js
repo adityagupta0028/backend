@@ -84,6 +84,11 @@ const productSchema = new mongoose.Schema({
     },
     default: 0
   },
+  viewAngle: {
+    type: String,
+    enum: ["Angled view", "Top view", "Side view"],
+    default: null
+  },
   diamond_origin: {
     type: [String],
     default: [],

@@ -1,6 +1,7 @@
 const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
+const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 
 module.exports.addMember = async (req, res, next) => {
   try {

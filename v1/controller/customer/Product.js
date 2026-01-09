@@ -13,28 +13,36 @@ module.exports.getProducts = async (req, res, next) => {
         metalType,
         ringSize,
         diamondOrigin,
+        viewAngle,
+        settingConfigurations,
+        shankConfigurations,
+        holdingMethods,
+        bandProfileShapes,
+        bandWidthCategories,
+        bandFits,
+        shankTreatments,
+        styles,
+        settingFeatures,
+        motifThemes,
+        ornamentDetails,
+        accentStoneShapes,
         limit = 20,
         page = 1
       } = params;
 
-      // Build aggregation pipeline
+     
       const pipeline = [];
-
-      // Stage 1: Match stage - Filter products
       const matchStage = {
         isDeleted: false,
         status: "Active"
       };
 
-      // Filter by categoryId (support both single and array)
       if (categoryId) {
         const categoryIds = Array.isArray(categoryId) ? categoryId : [categoryId];
         matchStage.categoryId = { $in: categoryIds.map(id => 
           mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
         )};
       }
-
-      // Filter by subcategoryId (support both single and array)
       if (subcategoryId) {
         const subcategoryIds = Array.isArray(subcategoryId) ? subcategoryId : [subcategoryId];
         matchStage.subCategoryId = { $in: subcategoryIds.map(id => 
@@ -42,26 +50,125 @@ module.exports.getProducts = async (req, res, next) => {
         )};
       }
 
-      // Filter by metalType (array field - check if any matches)
       if (metalType) {
         const metalTypes = Array.isArray(metalType) ? metalType : [metalType];
         matchStage.metal_type = { $in: metalTypes };
       }
-
-      // Filter by diamondOrigin (array field - check if any matches)
       if (diamondOrigin) {
         const diamondOrigins = Array.isArray(diamondOrigin) ? diamondOrigin : [diamondOrigin];
         matchStage.diamond_origin = { $in: diamondOrigins };
       }
 
-      // Filter by ringSize (array field - check if any matches)
       if (ringSize) {
         const ringSizes = Array.isArray(ringSize) 
           ? ringSize.map(s => typeof s === 'string' ? parseFloat(s) : s)
           : [typeof ringSize === 'string' ? parseFloat(ringSize) : ringSize];
         matchStage.ring_size = { $in: ringSizes };
       }
+      if (viewAngle) {
+        matchStage.viewAngle = viewAngle;
+      }
 
+      // Filter by settingConfigurations (single ObjectId)
+      if (settingConfigurations) {
+        const settingIds = Array.isArray(settingConfigurations) ? settingConfigurations : [settingConfigurations];
+        matchStage.settingConfigurations = { $in: settingIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by shankConfigurations (single ObjectId)
+      if (shankConfigurations) {
+        const shankIds = Array.isArray(shankConfigurations) ? shankConfigurations : [shankConfigurations];
+        matchStage.shankConfigurations = { $in: shankIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by holdingMethods (single ObjectId)
+      if (holdingMethods) {
+        const holdingIds = Array.isArray(holdingMethods) ? holdingMethods : [holdingMethods];
+        matchStage.holdingMethods = { $in: holdingIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by bandProfileShapes (single ObjectId)
+      if (bandProfileShapes) {
+        const bandProfileIds = Array.isArray(bandProfileShapes) ? bandProfileShapes : [bandProfileShapes];
+        matchStage.bandProfileShapes = { $in: bandProfileIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by bandWidthCategories (single ObjectId)
+      if (bandWidthCategories) {
+        const bandWidthIds = Array.isArray(bandWidthCategories) ? bandWidthCategories : [bandWidthCategories];
+        matchStage.bandWidthCategories = { $in: bandWidthIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by bandFits (single ObjectId)
+      if (bandFits) {
+        const bandFitIds = Array.isArray(bandFits) ? bandFits : [bandFits];
+        matchStage.bandFits = { $in: bandFitIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+        console.log('Filtering by bandFits:', matchStage.bandFits);
+      }
+
+      // Filter by shankTreatments (array field - check if any matches)
+      if (shankTreatments) {
+        const shankTreatmentIds = Array.isArray(shankTreatments) ? shankTreatments : [shankTreatments];
+        matchStage.shankTreatments = { $in: shankTreatmentIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by styles (array field - check if any matches)
+      if (styles) {
+        const styleIds = Array.isArray(styles) ? styles : [styles];
+        matchStage.styles = { $in: styleIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by settingFeatures (array field - check if any matches)
+      if (settingFeatures) {
+        const settingFeatureIds = Array.isArray(settingFeatures) ? settingFeatures : [settingFeatures];
+        matchStage.settingFeatures = { $in: settingFeatureIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by motifThemes (array field - check if any matches)
+      if (motifThemes) {
+        const motifThemeIds = Array.isArray(motifThemes) ? motifThemes : [motifThemes];
+        matchStage.motifThemes = { $in: motifThemeIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by ornamentDetails (array field - check if any matches)
+      if (ornamentDetails) {
+        const ornamentDetailIds = Array.isArray(ornamentDetails) ? ornamentDetails : [ornamentDetails];
+        matchStage.ornamentDetails = { $in: ornamentDetailIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Filter by accentStoneShapes (array field - check if any matches)
+      if (accentStoneShapes) {
+        const accentStoneShapeIds = Array.isArray(accentStoneShapes) ? accentStoneShapes : [accentStoneShapes];
+        matchStage.accentStoneShapes = { $in: accentStoneShapeIds.map(id => 
+          mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
+        )};
+      }
+
+      // Debug: Log the final match stage
+      console.log('Final matchStage:', JSON.stringify(matchStage, null, 2));
+      
       pipeline.push({ $match: matchStage });
 
       // Get total count early (before expensive operations) for pagination metadata
@@ -163,6 +270,19 @@ module.exports.getProducts = async (req, res, next) => {
           variants: 1,
           categoryId: 1,
           subCategoryId: 1,
+          viewAngle: 1,
+          settingConfigurations: 1,
+          shankConfigurations: 1,
+          holdingMethods: 1,
+          bandProfileShapes: 1,
+          bandWidthCategories: 1,
+          bandFits: 1,
+          shankTreatments: 1,
+          styles: 1,
+          settingFeatures: 1,
+          motifThemes: 1,
+          ornamentDetails: 1,
+          accentStoneShapes: 1,
           categories: {
             _id: 1,
             title: 1,
@@ -343,6 +463,63 @@ module.exports.getProductDetails = async (req, res, next) => {
 
     return res.success(constants.MESSAGES.DATA_FETCHED, {
       product: products[0]
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+
+module.exports.getFilteredVisibility = async (req, res, next) => {
+  try {
+    // Get all visible filters
+    const visibility = await Model.FilterVisibility.find({
+      isVisible: true
+    });
+
+    // Map filterKey to corresponding Model
+    const filterModelMap = {
+      settingConfigurations: Model.SettingConfigurations,
+      shankConfigurations: Model.ShankConfigurations,
+      holdingMethods: Model.HoldingMethods,
+      bandProfileShapes: Model.BandProfileShapes,
+      bandWidthCategories: Model.BandWidthCategories,
+      bandFits: Model.BandFits,
+      shankTreatments: Model.ShankTreatments,
+      styles: Model.Styles,
+      settingFeatures: Model.SettingFeatures,
+      motifThemes: Model.MotifThemes,
+      ornamentDetails: Model.OrnamentDetails,
+      accentStoneShapes: Model.AccentStoneShapes
+    };
+
+    // Fetch data for each visible filter
+    const filtersData = await Promise.all(
+      visibility.map(async (filter) => {
+        const ModelClass = filterModelMap[filter.filterKey];
+        if (!ModelClass) {
+          return {
+            filterKey: filter.filterKey,
+            filterName: filter.filterName,
+            data: []
+          };
+        }
+
+        // Fetch all non-deleted data from the corresponding model
+        const data = await ModelClass.find({
+          isDeleted: false
+        }).select('_id code displayName image createdAt updatedAt').sort({ createdAt: 1 });
+
+        return {
+          filterKey: filter.filterKey,
+          filterName: filter.filterName,
+          data: data
+        };
+      })
+    );
+
+    return res.success(constants.MESSAGES.DATA_FETCHED, {
+      filters: filtersData
     });
   } catch (error) {
     next(error);

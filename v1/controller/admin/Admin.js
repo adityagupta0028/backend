@@ -5,8 +5,26 @@ const functions = require("../../../common/functions");
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Auth = require("../../../common/authenticate");
+const uploadFile = require("../../../common/uploadFile");
+const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 
 
+module.exports.uploadFileS3 = async (req, res, next) => {
+  try {
+    if (!req.file) throw new Error(constants.MESSAGES.UPLOADING_ERROR);
+    console.log("req.file", req.file);
+    let { filePath, fileUrl } = await uploadFile(req.file);
+    console.log("fileUrl", fileUrl);
+    return res.success(constants.MESSAGES.UPLOAD_SUCCESS, {
+      filePath
+    });
+  } catch (error) {
+    let { filePath } = await uploadFile(req.file);
+    return res.success(constants.MESSAGES.UPLOAD_SUCCESS, {
+      filePath,
+    });
+  }
+}
 
 module.exports.signup = async (req, res, next) => {
   try {

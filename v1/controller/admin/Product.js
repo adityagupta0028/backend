@@ -1,6 +1,7 @@
 const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
+const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 
 // Create Product
 module.exports.createProduct = async (req, res, next) => {
@@ -331,8 +332,8 @@ if (req.body.variants) {
     }
     
     // Handle images - if files are uploaded, add their paths
-    if (req.files && req.files.length > 0) {
-      req.body.images = req.files.map(file => "/uploads/" + file.filename);
+    if (req.files && req.files.images && req.files.images.length > 0) {
+      req.body.images = req.files.images.map(file => "/uploads/" + file.filename);
     } else if (req.body.images) {
       // If images are provided in body
       if (typeof req.body.images === 'string') {
@@ -346,9 +347,18 @@ if (req.body.variants) {
     }
     
     // Handle videos - if files are uploaded
-    // if (req.body.videos && typeof req.body.videos === 'string') {
-    //   req.body.videos = [req.body.videos];
-    // }
+    if (req.files && req.files.videos && req.files.videos.length > 0) {
+      req.body.videos = req.files.videos.map(file => "/uploads/" + file.filename);
+    } else if (req.body.videos) {
+      // If videos are provided in body
+      if (typeof req.body.videos === 'string') {
+        req.body.videos = [req.body.videos];
+      } else if (!Array.isArray(req.body.videos)) {
+        req.body.videos = [];
+      }
+    } else {
+      req.body.videos = [];
+    }
     
     // Convert tags string to array if needed
     if (req.body.tags && typeof req.body.tags === 'string') {
@@ -361,6 +371,9 @@ if (req.body.variants) {
     }
     if (req.body.product_type === '' || req.body.product_type === undefined) {
       req.body.product_type = null;
+    }
+    if (req.body.viewAngle === '' || req.body.viewAngle === undefined) {
+      req.body.viewAngle = null;
     }
    
     
@@ -762,8 +775,8 @@ module.exports.updateProduct = async (req, res, next) => {
     }
     
     // Handle images - if files are uploaded, add their paths
-    if (req.files && req.files.length > 0) {
-      const newImages = req.files.map(file => "/uploads/" + file.filename);
+    if (req.files && req.files.images && req.files.images.length > 0) {
+      const newImages = req.files.images.map(file => "/uploads/" + file.filename);
       req.body.images = req.body.images 
         ? [...req.body.images, ...newImages] 
         : [...product.images, ...newImages];
@@ -771,9 +784,19 @@ module.exports.updateProduct = async (req, res, next) => {
       req.body.images = [req.body.images];
     }
     
-    // Handle videos
-    if (req.body.videos && typeof req.body.videos === 'string') {
+    // Handle videos - if files are uploaded, add their paths
+    if (req.files && req.files.videos && req.files.videos.length > 0) {
+      const newVideos = req.files.videos.map(file => "/uploads/" + file.filename);
+      req.body.videos = req.body.videos 
+        ? [...req.body.videos, ...newVideos] 
+        : product.videos 
+          ? [...product.videos, ...newVideos] 
+          : [...newVideos];
+    } else if (req.body.videos && typeof req.body.videos === 'string') {
       req.body.videos = [req.body.videos];
+    } else if (!req.body.videos) {
+      // Keep existing videos if not provided
+      req.body.videos = product.videos || [];
     }
     
     // Convert tags string to array if needed
@@ -787,6 +810,9 @@ module.exports.updateProduct = async (req, res, next) => {
     }
     if (req.body.product_type === '' || req.body.product_type === undefined) {
       req.body.product_type = null;
+    }
+    if (req.body.viewAngle === '' || req.body.viewAngle === undefined) {
+      req.body.viewAngle = null;
     }
     
     Object.assign(product, req.body);

@@ -1,6 +1,8 @@
 const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
+const { uploadFileToS3 } = require("../../../services/uploadS3Service");
+const fs = require("fs");
 
 // Create Category
 module.exports.createCategory = async (req, res, next) => {
@@ -16,10 +18,18 @@ module.exports.createCategory = async (req, res, next) => {
     if (existingCategory) {
       throw new Error("Category with this name already exists");
     }
-    
     if (req.file) {
-      req.body.image = "/uploads/" + req.file.filename;
-    }
+          const fileFullPath = req.file.path;
+          let filePath = `uploads/${req.file.filename}`;
+          const bucketName = "merefunds";
+          const fileUrl = await uploadFileToS3(
+            fileFullPath,
+            bucketName,
+            filePath
+          );
+          fs.unlinkSync(fileFullPath);
+          req.body.image = "/" + filePath;
+        } 
     
     let category = await Model.Category.create(req.body);
     return res.success(constants.MESSAGES.DATA_UPLOADED, category);
@@ -88,9 +98,17 @@ module.exports.updateCategory = async (req, res, next) => {
     }
     
     if (req.file) {
-      req.body.image = "/uploads/" + req.file.filename;
-    }
-    
+      const fileFullPath = req.file.path;
+      let filePath = `uploads/${req.file.filename}`;
+      const bucketName = "merefunds";
+      const fileUrl = await uploadFileToS3(
+        fileFullPath,
+        bucketName,
+        filePath
+      );
+      fs.unlinkSync(fileFullPath);
+      req.body.image = "/" + filePath;
+    } 
     Object.assign(category, req.body);
     await category.save();
     
@@ -136,9 +154,19 @@ module.exports.createSubCategory = async (req, res, next) => {
       throw new Error("Category not found");
     }
     
+  
     if (req.file) {
-      req.body.image = "/uploads/" + req.file.filename;
-    }
+      const fileFullPath = req.file.path;
+      let filePath = `uploads/${req.file.filename}`;
+      const bucketName = "merefunds";
+      const fileUrl = await uploadFileToS3(
+        fileFullPath,
+        bucketName,
+        filePath
+      );
+      fs.unlinkSync(fileFullPath);
+      req.body.image = "/" + filePath;
+    } 
     
     let subCategory = await Model.SubCategory.create(req.body);
     // Populate category info
@@ -218,8 +246,17 @@ module.exports.updateSubCategory = async (req, res, next) => {
     }
     
     if (req.file) {
-      req.body.image = "/uploads/" + req.file.filename;
-    }
+      const fileFullPath = req.file.path;
+      let filePath = `uploads/${req.file.filename}`;
+      const bucketName = "merefunds";
+      const fileUrl = await uploadFileToS3(
+        fileFullPath,
+        bucketName,
+        filePath
+      );
+      fs.unlinkSync(fileFullPath);
+      req.body.image = "/" + filePath;
+    } 
     
     Object.assign(subCategory, req.body);
     await subCategory.save();
