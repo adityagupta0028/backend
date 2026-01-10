@@ -8,7 +8,6 @@ var storage = multer.diskStorage({
         cb(null , file.fieldname +'-'+ Date.now()+'.'+file.mimetype.split('/')[1]);
     }
 });
-
 const upload = multer({storage:storage});
 module.exports = upload
 
