@@ -2,7 +2,7 @@ const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
 const { uploadFileToS3 } = require("../../../services/uploadS3Service");
-
+const fs = require("fs");
 // Create Product
 module.exports.createProduct = async (req, res, next) => {
   // Parse variants from JSON string (multipart/form-data case)
@@ -387,47 +387,90 @@ module.exports.createProduct = async (req, res, next) => {
 
     // Process metal_images files (single image per view angle)
     req.body.metal_images = [];
+    // req.body.metal_images = [];
 
-    Object.keys(metalImagesFiles).forEach(async (fieldname) => {
-      // Parse fieldname: metal_images_${metalType}_${viewAngle}
-      // View angles are: "Angled_view", "Top_view", "Side_view"
-      const withoutPrefix = fieldname.replace('metal_images_', '');
-      const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
-      let metalType = '';
-      let viewAngle = '';
+const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
 
-      // Find which view angle this fieldname ends with
-      for (const va of viewAngles) {
-        if (withoutPrefix.endsWith('_' + va)) {
-          viewAngle = va.replace(/_/g, ' ');
-          const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
-          metalType = metalTypePart.replace(/_/g, ' ');
-          break;
-        }
-      }
+for (const fieldname of Object.keys(metalImagesFiles)) {
+  const withoutPrefix = fieldname.replace('metal_images_', '');
+  let metalType = '';
+  let viewAngle = '';
 
-      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
-        // Single image per view angle
-        const imageFile = metalImagesFiles[fieldname][0];
-        const filePath = "uploads/" + imageFile.filename;
+  for (const va of viewAngles) {
+    if (withoutPrefix.endsWith('_' + va)) {
+      viewAngle = va.replace(/_/g, ' ');
+      const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
+      metalType = metalTypePart.replace(/_/g, ' ');
+      break;
+    }
+  }
 
+  if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+    const imageFile = metalImagesFiles[fieldname][0];
+    const filePath = "uploads/" + imageFile.filename;
 
-        const fileFullPath = imageFile.path;
-        const bucketName = "merefunds";
-        const fileUrl = await uploadFileToS3(
-          fileFullPath,
-          bucketName,
-          filePath
-        );
-        fs.unlinkSync(fileFullPath);
-        
-        req.body.metal_images.push({
-          metal_type: metalType,
-          view_angle: viewAngle,
-          image: '/' + filePath,
-        });
-      }
+    const fileFullPath = imageFile.path;
+    const bucketName = "merefunds";
+
+    // Upload to S3
+    const fileUrl = await uploadFileToS3(
+      fileFullPath,
+      bucketName,
+      filePath
+    );
+
+    // Delete local file
+    fs.unlinkSync(fileFullPath);
+
+    req.body.metal_images.push({
+      metal_type: metalType,
+      view_angle: viewAngle,
+      image: '/' + filePath, // better to save S3 URL
     });
+  }
+}
+
+
+    // Object.keys(metalImagesFiles).forEach(async (fieldname) => {
+    //   // Parse fieldname: metal_images_${metalType}_${viewAngle}
+    //   // View angles are: "Angled_view", "Top_view", "Side_view"
+    //   const withoutPrefix = fieldname.replace('metal_images_', '');
+    //   const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
+    //   let metalType = '';
+    //   let viewAngle = '';
+
+    //   // Find which view angle this fieldname ends with
+    //   for (const va of viewAngles) {
+    //     if (withoutPrefix.endsWith('_' + va)) {
+    //       viewAngle = va.replace(/_/g, ' ');
+    //       const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
+    //       metalType = metalTypePart.replace(/_/g, ' ');
+    //       break;
+    //     }
+    //   }
+
+    //   if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+    //     // Single image per view angle
+    //     const imageFile = metalImagesFiles[fieldname][0];
+    //     const filePath = "uploads/" + imageFile.filename;
+
+
+    //     const fileFullPath = imageFile.path;
+    //     const bucketName = "merefunds";
+    //     const fileUrl = await uploadFileToS3(
+    //       fileFullPath,
+    //       bucketName,
+    //       filePath
+    //     );
+    //     fs.unlinkSync(fileFullPath);
+        
+    //     req.body.metal_images.push({
+    //       metal_type: metalType,
+    //       view_angle: viewAngle,
+    //       image: '/' + filePath,
+    //     });
+    //   }
+    // });
 
     // Ensure metal_images is an array
     if (!req.body.metal_images || !Array.isArray(req.body.metal_images)) {

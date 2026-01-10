@@ -2,7 +2,7 @@ const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
 const { uploadFileToS3 } = require("../../../services/uploadS3Service");
-
+const fs = require("fs");
 module.exports.addMember = async (req, res, next) => {
   try {
     await Validation.Admin.createTeamMember.validateAsync(req.body);
