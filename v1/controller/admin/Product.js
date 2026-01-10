@@ -331,24 +331,49 @@ if (req.body.variants) {
       req.body.matching_band_product_id = null;
     }
     
-    // Handle images - if files are uploaded, add their paths
-    if (req.files && req.files.images && req.files.images.length > 0) {
-      req.body.images = req.files.images.map(file => "/uploads/" + file.filename);
+    // Handle files from upload.any() - separate images, videos, and metal_images
+    const regularImages = [];
+    const regularVideos = [];
+    const metalImagesFiles = {};
+    
+    if (req.files && Array.isArray(req.files)) {
+      req.files.forEach((file) => {
+        if (file.fieldname === 'images') {
+          regularImages.push(file);
+        } else if (file.fieldname === 'videos') {
+          regularVideos.push(file);
+        } else if (file.fieldname && file.fieldname.startsWith('metal_images_')) {
+          // Parse field name: metal_images_${metalType}_${viewAngle}
+          const parts = file.fieldname.replace('metal_images_', '').split('_');
+          // Reconstruct metalType and viewAngle (they may contain underscores)
+          // Format: metalType is everything except last part, viewAngle is last part
+          // But we need to handle spaces that were replaced with underscores
+          // Let's use a different approach: store by fieldname and parse later
+          if (!metalImagesFiles[file.fieldname]) {
+            metalImagesFiles[file.fieldname] = [];
+          }
+          metalImagesFiles[file.fieldname].push(file);
+        }
+      });
+    }
+    
+    // Handle regular images (optional now, as we use metal_images)
+    if (regularImages.length > 0) {
+      req.body.images = regularImages.map(file => "/uploads/" + file.filename);
     } else if (req.body.images) {
       // If images are provided in body
       if (typeof req.body.images === 'string') {
-        // If images is a string (single image), convert to array
         req.body.images = [req.body.images];
-      } else if (Array.isArray(req.body.images) && req.body.images.length === 0) {
-        throw new Error("At least one image is required");
+      } else if (!Array.isArray(req.body.images)) {
+        req.body.images = [];
       }
     } else {
-      throw new Error("At least one image is required");
+      req.body.images = [];
     }
     
-    // Handle videos - if files are uploaded
-    if (req.files && req.files.videos && req.files.videos.length > 0) {
-      req.body.videos = req.files.videos.map(file => "/uploads/" + file.filename);
+    // Handle regular videos
+    if (regularVideos.length > 0) {
+      req.body.videos = regularVideos.map(file => "/uploads/" + file.filename);
     } else if (req.body.videos) {
       // If videos are provided in body
       if (typeof req.body.videos === 'string') {
@@ -358,6 +383,49 @@ if (req.body.variants) {
       }
     } else {
       req.body.videos = [];
+    }
+    
+    // Process metal_images files (single image per view angle)
+    req.body.metal_images = [];
+    
+    Object.keys(metalImagesFiles).forEach((fieldname) => {
+      // Parse fieldname: metal_images_${metalType}_${viewAngle}
+      // View angles are: "Angled_view", "Top_view", "Side_view"
+      const withoutPrefix = fieldname.replace('metal_images_', '');
+      const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
+      let metalType = '';
+      let viewAngle = '';
+      
+      // Find which view angle this fieldname ends with
+      for (const va of viewAngles) {
+        if (withoutPrefix.endsWith('_' + va)) {
+          viewAngle = va.replace(/_/g, ' ');
+          const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
+          metalType = metalTypePart.replace(/_/g, ' ');
+          break;
+        }
+      }
+      
+      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+        // Single image per view angle
+        const imageFile = metalImagesFiles[fieldname][0];
+        const imagePath = "/uploads/" + imageFile.filename;
+        req.body.metal_images.push({
+          metal_type: metalType,
+          view_angle: viewAngle,
+          image: imagePath
+        });
+      }
+    });
+    
+    // Ensure metal_images is an array
+    if (!req.body.metal_images || !Array.isArray(req.body.metal_images)) {
+      req.body.metal_images = [];
+    }
+    
+    // Validate that either regular images or metal_images are provided (after processing metal_images)
+    if (req.body.images.length === 0 && req.body.metal_images.length === 0) {
+      throw new Error("At least one image is required (either general images or metal-specific images)");
     }
     
     // Convert tags string to array if needed
@@ -774,9 +842,29 @@ module.exports.updateProduct = async (req, res, next) => {
       }
     }
     
-    // Handle images - if files are uploaded, add their paths
-    if (req.files && req.files.images && req.files.images.length > 0) {
-      const newImages = req.files.images.map(file => "/uploads/" + file.filename);
+    // Handle files from upload.any() - separate images, videos, and metal_images
+    const regularImages = [];
+    const regularVideos = [];
+    const metalImagesFiles = {};
+    
+    if (req.files && Array.isArray(req.files)) {
+      req.files.forEach((file) => {
+        if (file.fieldname === 'images') {
+          regularImages.push(file);
+        } else if (file.fieldname === 'videos') {
+          regularVideos.push(file);
+        } else if (file.fieldname && file.fieldname.startsWith('metal_images_')) {
+          if (!metalImagesFiles[file.fieldname]) {
+            metalImagesFiles[file.fieldname] = [];
+          }
+          metalImagesFiles[file.fieldname].push(file);
+        }
+      });
+    }
+    
+    // Handle regular images
+    if (regularImages.length > 0) {
+      const newImages = regularImages.map(file => "/uploads/" + file.filename);
       req.body.images = req.body.images 
         ? [...req.body.images, ...newImages] 
         : [...product.images, ...newImages];
@@ -784,9 +872,9 @@ module.exports.updateProduct = async (req, res, next) => {
       req.body.images = [req.body.images];
     }
     
-    // Handle videos - if files are uploaded, add their paths
-    if (req.files && req.files.videos && req.files.videos.length > 0) {
-      const newVideos = req.files.videos.map(file => "/uploads/" + file.filename);
+    // Handle regular videos
+    if (regularVideos.length > 0) {
+      const newVideos = regularVideos.map(file => "/uploads/" + file.filename);
       req.body.videos = req.body.videos 
         ? [...req.body.videos, ...newVideos] 
         : product.videos 
@@ -797,6 +885,40 @@ module.exports.updateProduct = async (req, res, next) => {
     } else if (!req.body.videos) {
       // Keep existing videos if not provided
       req.body.videos = product.videos || [];
+    }
+    
+    // Process metal_images files (single image per view angle)
+    if (Object.keys(metalImagesFiles).length > 0) {
+      req.body.metal_images = [];
+      Object.keys(metalImagesFiles).forEach((fieldname) => {
+        const withoutPrefix = fieldname.replace('metal_images_', '');
+        const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
+        let metalType = '';
+        let viewAngle = '';
+        
+        for (const va of viewAngles) {
+          if (withoutPrefix.endsWith('_' + va)) {
+            viewAngle = va.replace(/_/g, ' ');
+            const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
+            metalType = metalTypePart.replace(/_/g, ' ');
+            break;
+          }
+        }
+        
+        if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+          // Single image per view angle
+          const imageFile = metalImagesFiles[fieldname][0];
+          const imagePath = "/uploads/" + imageFile.filename;
+          req.body.metal_images.push({
+            metal_type: metalType,
+            view_angle: viewAngle,
+            image: imagePath
+          });
+        }
+      });
+    } else if (req.body.metal_images === undefined) {
+      // Keep existing metal_images if not provided
+      req.body.metal_images = product.metal_images || [];
     }
     
     // Convert tags string to array if needed

@@ -28,6 +28,13 @@ module.exports.createProduct = Joi.object({
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
   viewAngle: Joi.string().valid("Angled view", "Top view", "Side view").optional().allow(''),
+  metal_images: Joi.array().items(
+    Joi.object({
+      metal_type: Joi.string().required(),
+      view_angle: Joi.string().valid("Angled view", "Top view", "Side view").required(),
+      image: Joi.string().required()
+    })
+  ).optional(),
   diamond_origin: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()
@@ -144,6 +151,13 @@ module.exports.updateProduct = Joi.object({
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
   viewAngle: Joi.string().valid("Angled view", "Top view", "Side view").optional().allow(''),
+  metal_images: Joi.array().items(
+    Joi.object({
+      metal_type: Joi.string().required(),
+      view_angle: Joi.string().valid("Angled view", "Top view", "Side view").required(),
+      image: Joi.string().required()
+    })
+  ).optional(),
   diamond_origin: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()

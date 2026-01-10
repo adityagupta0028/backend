@@ -89,6 +89,24 @@ const productSchema = new mongoose.Schema({
     enum: ["Angled view", "Top view", "Side view"],
     default: null
   },
+  metal_images: {
+    type: [{
+      metal_type: {
+        type: String,
+        required: true
+      },
+      view_angle: {
+        type: String,
+        enum: ["Angled view", "Top view", "Side view"],
+        required: true
+      },
+      image: {
+        type: String,
+        required: true
+      }
+    }],
+    default: []
+  },
   diamond_origin: {
     type: [String],
     default: [],
@@ -205,13 +223,7 @@ const productSchema = new mongoose.Schema({
   },
   images: {
     type: [String],
-    default: [],
-    validate: {
-      validator: function(v) {
-        return v.length > 0;
-      },
-      message: 'At least one image is required'
-    }
+    default: []
   },
   videos: {
     type: [String],

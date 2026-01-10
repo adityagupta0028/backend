@@ -47,11 +47,11 @@ router.post("/updateSubCategory/:id", Auth.verify("Admin"), upload.single('image
 router.delete("/deleteSubCategory/:id", Auth.verify("Admin"), Controller.CategoryController.deleteSubCategory);
 
 // Product Routes
-router.post("/createProduct", Auth.verify("Admin"), upload.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 5 }]), Controller.ProductController.createProduct);
+router.post("/createProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createProduct);
 router.get("/getProducts", Controller.ProductController.getProducts);
 router.get("/getProductDetail/:id", Controller.ProductController.getProductDetail);
 router.get("/getProductByProductId/:product_id", Controller.ProductController.getProductByProductId);
-router.post("/updateProduct/:id", Auth.verify("Admin"), upload.fields([{ name: 'images', maxCount: 10 }, { name: 'videos', maxCount: 5 }]), Controller.ProductController.updateProduct);
+router.post("/updateProduct/:id", Auth.verify("Admin"), upload.any(), Controller.ProductController.updateProduct);
 router.delete("/deleteProduct/:id", Auth.verify("Admin"), Controller.ProductController.deleteProduct);
 
 //banner
