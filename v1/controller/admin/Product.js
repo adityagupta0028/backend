@@ -6,47 +6,47 @@ const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 // Create Product
 module.exports.createProduct = async (req, res, next) => {
   // Parse variants from JSON string (multipart/form-data case)
-if (req.body.variants) {
-  if (typeof req.body.variants === 'string') {
-    try {
-      req.body.variants = JSON.parse(req.body.variants);
-    } catch (e) {
-      // Invalid JSON from frontend
-      return next(new Error('Invalid variants JSON'));
+  if (req.body.variants) {
+    if (typeof req.body.variants === 'string') {
+      try {
+        req.body.variants = JSON.parse(req.body.variants);
+      } catch (e) {
+        // Invalid JSON from frontend
+        return next(new Error('Invalid variants JSON'));
+      }
     }
   }
-}
 
   try {
     await Validation.Product.createProduct.validateAsync(req.body);
-   console.log("req.body", req.body);if (Array.isArray(req.body.variants)) {
-    req.body.variants = req.body.variants.map(v => ({
-      diamond_type: v.diamond_type,
-      carat_weight: v.carat_weight,
-      metal_type: v.metal_type,
-      price: Number(v.price),
-      discounted_price: Number(v.discounted_price),
-    }));
-  } else {
-    req.body.variants = [];
-  }
+    console.log("req.body", req.body); if (Array.isArray(req.body.variants)) {
+      req.body.variants = req.body.variants.map(v => ({
+        diamond_type: v.diamond_type,
+        carat_weight: v.carat_weight,
+        metal_type: v.metal_type,
+        price: Number(v.price),
+        discounted_price: Number(v.discounted_price),
+      }));
+    } else {
+      req.body.variants = [];
+    }
     if (!req.body.product_id || req.body.product_id.trim() === '') {
       // Generate a unique product_id
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 1000);
       req.body.product_id = `PROD-${timestamp}-${random}`;
     }
-    
+
     // Check if product_id already exists
     let existingProduct = await Model.Product.findOne({
       product_id: req.body.product_id,
       isDeleted: false
     });
-    
+
     if (existingProduct) {
       throw new Error("Product with this product_id already exists");
     }
-    
+
     // Normalize status (lowercase to capitalized)
     if (req.body.status) {
       const statusLower = req.body.status.toLowerCase();
@@ -62,7 +62,7 @@ if (req.body.variants) {
     } else {
       req.body.status = 'Active'; // Default to Active
     }
-    
+
     // Normalize diamond origin values
     if (req.body.diamond_origin) {
       const normalizeDiamondOrigin = (value) => {
@@ -71,14 +71,14 @@ if (req.body.variants) {
         if (lower === 'lab grown' || lower === 'lab-grown') return 'Lab Grown';
         return value; // Keep original if not recognized
       };
-      
+
       if (Array.isArray(req.body.diamond_origin)) {
         req.body.diamond_origin = req.body.diamond_origin.map(normalizeDiamondOrigin);
       } else {
         req.body.diamond_origin = [normalizeDiamondOrigin(req.body.diamond_origin)];
       }
     }
-    
+
     // Normalize metal type values (15K to 14K if needed, or keep as is)
     if (req.body.metal_type) {
       const normalizeMetalType = (value) => {
@@ -88,14 +88,14 @@ if (req.body.variants) {
         }
         return value;
       };
-      
+
       if (Array.isArray(req.body.metal_type)) {
         req.body.metal_type = req.body.metal_type.map(normalizeMetalType);
       } else {
         req.body.metal_type = [normalizeMetalType(req.body.metal_type)];
       }
     }
-    
+
     // Normalize diamond quality values (map frontend values to backend values)
     if (req.body.diamond_quality) {
       const normalizeDiamondQuality = (value) => {
@@ -105,14 +105,14 @@ if (req.body.variants) {
         if (lower.includes('good')) return 'Good - F, VS2';
         return value; // Keep original if not recognized
       };
-      
+
       if (Array.isArray(req.body.diamond_quality)) {
         req.body.diamond_quality = req.body.diamond_quality.map(normalizeDiamondQuality);
       } else {
         req.body.diamond_quality = [normalizeDiamondQuality(req.body.diamond_quality)];
       }
     }
-    
+
     // Normalize arrays - convert single values to arrays
     const normalizeArray = (value) => {
       if (!value) return value;
@@ -164,19 +164,19 @@ if (req.body.variants) {
         _id: { $in: req.body.categoryId },
         isDeleted: false
       });
-      
+
       if (categories.length !== req.body.categoryId.length) {
         throw new Error("One or more categories not found");
       }
     }
-    
+
     // Check if subcategories exist
     if (req.body.subCategoryId && Array.isArray(req.body.subCategoryId)) {
       const subCategories = await Model.SubCategory.find({
         _id: { $in: req.body.subCategoryId },
         isDeleted: false
       });
-      
+
       if (subCategories.length !== req.body.subCategoryId.length) {
         throw new Error("One or more subcategories not found");
       }
@@ -321,7 +321,7 @@ if (req.body.variants) {
         _id: req.body.matching_band_product_id,
         isDeleted: false
       });
-      
+
       if (!matchingProduct) {
         throw new Error("Matching band product not found");
       }
@@ -330,12 +330,12 @@ if (req.body.variants) {
     } else if (!req.body.matching_band_available) {
       req.body.matching_band_product_id = null;
     }
-    
+
     // Handle files from upload.any() - separate images, videos, and metal_images
     const regularImages = [];
     const regularVideos = [];
     const metalImagesFiles = {};
-    
+
     if (req.files && Array.isArray(req.files)) {
       req.files.forEach((file) => {
         if (file.fieldname === 'images') {
@@ -356,7 +356,7 @@ if (req.body.variants) {
         }
       });
     }
-    
+
     // Handle regular images (optional now, as we use metal_images)
     if (regularImages.length > 0) {
       req.body.images = regularImages.map(file => "/uploads/" + file.filename);
@@ -370,7 +370,7 @@ if (req.body.variants) {
     } else {
       req.body.images = [];
     }
-    
+
     // Handle regular videos
     if (regularVideos.length > 0) {
       req.body.videos = regularVideos.map(file => "/uploads/" + file.filename);
@@ -384,18 +384,18 @@ if (req.body.variants) {
     } else {
       req.body.videos = [];
     }
-    
+
     // Process metal_images files (single image per view angle)
     req.body.metal_images = [];
-    
-    Object.keys(metalImagesFiles).forEach((fieldname) => {
+
+    Object.keys(metalImagesFiles).forEach(async (fieldname) => {
       // Parse fieldname: metal_images_${metalType}_${viewAngle}
       // View angles are: "Angled_view", "Top_view", "Side_view"
       const withoutPrefix = fieldname.replace('metal_images_', '');
       const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
       let metalType = '';
       let viewAngle = '';
-      
+
       // Find which view angle this fieldname ends with
       for (const va of viewAngles) {
         if (withoutPrefix.endsWith('_' + va)) {
@@ -405,34 +405,45 @@ if (req.body.variants) {
           break;
         }
       }
-      
+
       if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
         // Single image per view angle
         const imageFile = metalImagesFiles[fieldname][0];
-        const imagePath = "/uploads/" + imageFile.filename;
+        const filePath = "uploads/" + imageFile.filename;
+
+
+        const fileFullPath = imageFile.path;
+        const bucketName = "merefunds";
+        const fileUrl = await uploadFileToS3(
+          fileFullPath,
+          bucketName,
+          filePath
+        );
+        fs.unlinkSync(fileFullPath);
+        
         req.body.metal_images.push({
           metal_type: metalType,
           view_angle: viewAngle,
-          image: imagePath
+          image: '/' + filePath,
         });
       }
     });
-    
+
     // Ensure metal_images is an array
     if (!req.body.metal_images || !Array.isArray(req.body.metal_images)) {
       req.body.metal_images = [];
     }
-    
+
     // Validate that either regular images or metal_images are provided (after processing metal_images)
     if (req.body.images.length === 0 && req.body.metal_images.length === 0) {
       throw new Error("At least one image is required (either general images or metal-specific images)");
     }
-    
+
     // Convert tags string to array if needed
     if (req.body.tags && typeof req.body.tags === 'string') {
       req.body.tags = req.body.tags.split(',').map(tag => tag.trim());
     }
-    
+
     // Convert empty strings to null for enum fields to avoid validation errors
     if (req.body.back_type === '' || req.body.back_type === undefined) {
       req.body.back_type = null;
@@ -443,8 +454,8 @@ if (req.body.variants) {
     if (req.body.viewAngle === '' || req.body.viewAngle === undefined) {
       req.body.viewAngle = null;
     }
-   
-    
+
+
     let product = await Model.Product.create(req.body);
     await product.populate([
       'categoryId',
@@ -462,7 +473,7 @@ if (req.body.variants) {
       'ornamentDetails',
       'accentStoneShapes'
     ]);
-    
+
     return res.success(constants.MESSAGES.DATA_UPLOADED, product);
   } catch (error) {
     next(error);
@@ -475,47 +486,47 @@ module.exports.getProducts = async (req, res, next) => {
     let query = {
       isDeleted: false
     };
-    
+
     // Filter by category (support both single and array)
     if (req.query.categoryId) {
-      query.categoryId = Array.isArray(req.query.categoryId) 
+      query.categoryId = Array.isArray(req.query.categoryId)
         ? { $in: req.query.categoryId }
         : req.query.categoryId;
     }
-    
+
     // Filter by subcategory (support both single and array)
     if (req.query.subCategoryId) {
       query.subCategoryId = Array.isArray(req.query.subCategoryId)
         ? { $in: req.query.subCategoryId }
         : req.query.subCategoryId;
     }
-    
+
     // Filter by status
     if (req.query.status) {
       query.status = req.query.status;
     } else {
       query.status = "Active"; // Default to active products
     }
-    
+
     // Filter by product type
     if (req.query.product_type) {
       query.product_type = req.query.product_type;
     }
-    
+
     // Filter by metal type (support both single and array)
     if (req.query.metal_type) {
       query.metal_type = Array.isArray(req.query.metal_type)
         ? { $in: req.query.metal_type }
         : req.query.metal_type;
     }
-    
+
     // Filter by diamond origin (support both single and array)
     if (req.query.diamond_origin) {
       query.diamond_origin = Array.isArray(req.query.diamond_origin)
         ? { $in: req.query.diamond_origin }
         : req.query.diamond_origin;
     }
-    
+
     let products = await Model.Product.find(query)
       .populate([
         'categoryId',
@@ -534,7 +545,7 @@ module.exports.getProducts = async (req, res, next) => {
         'accentStoneShapes'
       ])
       .sort({ createdAt: -1 });
-    
+
     return res.success(constants.MESSAGES.DATA_FETCHED, products);
   } catch (error) {
     next(error);
@@ -563,11 +574,11 @@ module.exports.getProductDetail = async (req, res, next) => {
       'ornamentDetails',
       'accentStoneShapes'
     ]);
-    
+
     if (!product) {
       throw new Error(constants.MESSAGES.NOT_FOUND);
     }
-    
+
     return res.success(constants.MESSAGES.DATA_FETCHED, product);
   } catch (error) {
     next(error);
@@ -596,11 +607,11 @@ module.exports.getProductByProductId = async (req, res, next) => {
       'ornamentDetails',
       'accentStoneShapes'
     ]);
-    
+
     if (!product) {
       throw new Error(constants.MESSAGES.NOT_FOUND);
     }
-    
+
     return res.success(constants.MESSAGES.DATA_FETCHED, product);
   } catch (error) {
     next(error);
@@ -611,16 +622,16 @@ module.exports.getProductByProductId = async (req, res, next) => {
 module.exports.updateProduct = async (req, res, next) => {
   try {
     await Validation.Product.updateProduct.validateAsync(req.body);
-    
+
     let product = await Model.Product.findOne({
       _id: req.params.id,
       isDeleted: false
     });
-    
+
     if (!product) {
       throw new Error(constants.MESSAGES.NOT_FOUND);
     }
-    
+
     // Check if product_id is being updated and if it already exists
     if (req.body.product_id && req.body.product_id !== product.product_id) {
       let existingProduct = await Model.Product.findOne({
@@ -628,12 +639,12 @@ module.exports.updateProduct = async (req, res, next) => {
         isDeleted: false,
         _id: { $ne: req.params.id }
       });
-      
+
       if (existingProduct) {
         throw new Error("Product with this product_id already exists");
       }
     }
-    
+
     // Normalize arrays - convert single values to arrays
     const normalizeArray = (value) => {
       if (!value) return value;
@@ -672,19 +683,19 @@ module.exports.updateProduct = async (req, res, next) => {
         _id: { $in: req.body.categoryId },
         isDeleted: false
       });
-      
+
       if (categories.length !== req.body.categoryId.length) {
         throw new Error("One or more categories not found");
       }
     }
-    
+
     // If subcategories are being updated, verify they exist
     if (req.body.subCategoryId && Array.isArray(req.body.subCategoryId)) {
       const subCategories = await Model.SubCategory.find({
         _id: { $in: req.body.subCategoryId },
         isDeleted: false
       });
-      
+
       if (subCategories.length !== req.body.subCategoryId.length) {
         throw new Error("One or more subcategories not found");
       }
@@ -831,7 +842,7 @@ module.exports.updateProduct = async (req, res, next) => {
           isDeleted: false,
           _id: { $ne: req.params.id }
         });
-        
+
         if (!matchingProduct) {
           throw new Error("Matching band product not found");
         }
@@ -841,12 +852,12 @@ module.exports.updateProduct = async (req, res, next) => {
         req.body.matching_band_product_id = null;
       }
     }
-    
+
     // Handle files from upload.any() - separate images, videos, and metal_images
     const regularImages = [];
     const regularVideos = [];
     const metalImagesFiles = {};
-    
+
     if (req.files && Array.isArray(req.files)) {
       req.files.forEach((file) => {
         if (file.fieldname === 'images') {
@@ -861,24 +872,24 @@ module.exports.updateProduct = async (req, res, next) => {
         }
       });
     }
-    
+
     // Handle regular images
     if (regularImages.length > 0) {
       const newImages = regularImages.map(file => "/uploads/" + file.filename);
-      req.body.images = req.body.images 
-        ? [...req.body.images, ...newImages] 
+      req.body.images = req.body.images
+        ? [...req.body.images, ...newImages]
         : [...product.images, ...newImages];
     } else if (req.body.images && typeof req.body.images === 'string') {
       req.body.images = [req.body.images];
     }
-    
+
     // Handle regular videos
     if (regularVideos.length > 0) {
       const newVideos = regularVideos.map(file => "/uploads/" + file.filename);
-      req.body.videos = req.body.videos 
-        ? [...req.body.videos, ...newVideos] 
-        : product.videos 
-          ? [...product.videos, ...newVideos] 
+      req.body.videos = req.body.videos
+        ? [...req.body.videos, ...newVideos]
+        : product.videos
+          ? [...product.videos, ...newVideos]
           : [...newVideos];
     } else if (req.body.videos && typeof req.body.videos === 'string') {
       req.body.videos = [req.body.videos];
@@ -886,7 +897,7 @@ module.exports.updateProduct = async (req, res, next) => {
       // Keep existing videos if not provided
       req.body.videos = product.videos || [];
     }
-    
+
     // Process metal_images files (single image per view angle)
     if (Object.keys(metalImagesFiles).length > 0) {
       req.body.metal_images = [];
@@ -895,7 +906,7 @@ module.exports.updateProduct = async (req, res, next) => {
         const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
         let metalType = '';
         let viewAngle = '';
-        
+
         for (const va of viewAngles) {
           if (withoutPrefix.endsWith('_' + va)) {
             viewAngle = va.replace(/_/g, ' ');
@@ -904,7 +915,7 @@ module.exports.updateProduct = async (req, res, next) => {
             break;
           }
         }
-        
+
         if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
           // Single image per view angle
           const imageFile = metalImagesFiles[fieldname][0];
@@ -920,12 +931,12 @@ module.exports.updateProduct = async (req, res, next) => {
       // Keep existing metal_images if not provided
       req.body.metal_images = product.metal_images || [];
     }
-    
+
     // Convert tags string to array if needed
     if (req.body.tags && typeof req.body.tags === 'string') {
       req.body.tags = req.body.tags.split(',').map(tag => tag.trim());
     }
-    
+
     // Convert empty strings to null for enum fields to avoid validation errors
     if (req.body.back_type === '' || req.body.back_type === undefined) {
       req.body.back_type = null;
@@ -936,7 +947,7 @@ module.exports.updateProduct = async (req, res, next) => {
     if (req.body.viewAngle === '' || req.body.viewAngle === undefined) {
       req.body.viewAngle = null;
     }
-    
+
     Object.assign(product, req.body);
     await product.save();
     await product.populate([
@@ -955,7 +966,7 @@ module.exports.updateProduct = async (req, res, next) => {
       'ornamentDetails',
       'accentStoneShapes'
     ]);
-    
+
     return res.success(constants.MESSAGES.UPDATED_SUCCESSFULLY, product);
   } catch (error) {
     next(error);
@@ -969,14 +980,14 @@ module.exports.deleteProduct = async (req, res, next) => {
       _id: req.params.id,
       isDeleted: false
     });
-    
+
     if (!product) {
       throw new Error(constants.MESSAGES.NOT_FOUND);
     }
-    
+
     product.isDeleted = true;
     await product.save();
-    
+
     return res.success(constants.MESSAGES.DELETE_SUCCESSFUL, product);
   } catch (error) {
     next(error);
