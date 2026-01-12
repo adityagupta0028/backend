@@ -6,6 +6,16 @@ module.exports.checkout = async (req, res, next) => {
   try {
     await Validation.Customer.checkout.validateAsync(req.body);
     
+    // Log card details if provided
+    if (req.body.cardNumber || req.body.expMonth || req.body.expYear || req.body.cvc) {
+      console.log('=== Card Details ===');
+      console.log('Card Number:', req.body.cardNumber);
+      console.log('Expiry Month:', req.body.expMonth);
+      console.log('Expiry Year:', req.body.expYear);
+      console.log('CVC:', req.body.cvc);
+      console.log('===================');
+    }
+    
     let cart = await Model.Cart.findOne({
       customerId: req.customer._id,
       isDeleted: false
@@ -27,22 +37,46 @@ module.exports.checkout = async (req, res, next) => {
     
     const orderNumber = Model.Order.generateOrderNumber();
     
-    const orderItems = cart.items.map(item => ({
-      productId: item.productId._id,
-      product_id: item.product_id,
-      productName: item.productId.product_name,
-      quantity: item.quantity,
-      price: item.price,
-      discountedPrice: item.discountedPrice,
-      selectedVariant: item.selectedVariant,
-      engraving_text: item.engraving_text
-    }));
+    // Filter out items with null productId and map to order items
+    const orderItems = cart.items
+      .filter(item => item.productId && item.productId._id) // Filter out null productId
+      .map(item => ({
+        productId: item.productId._id,
+        product_id: item.product_id || item.productId.product_id,
+        productName: item.productId.product_name || 'Product',
+        quantity: item.quantity,
+        price: item.price,
+        discountedPrice: item.discountedPrice,
+        selectedVariant: item.selectedVariant,
+        engraving_text: item.engraving_text
+      }));
     
-    const subtotal = cart.subtotal;
+    // Check if we have valid items after filtering
+    if (orderItems.length === 0) {
+      throw new Error('Cart contains invalid items. Please refresh your cart.');
+    }
+    
+    // Calculate subtotal from cart items if cart.subtotal is not available
+    let subtotal = cart.subtotal;
+    if (!subtotal || subtotal === 0) {
+      subtotal = cart.items.reduce((sum, item) => {
+        if (item.productId) {
+          const price = item.discountedPrice || item.price || 0;
+          return sum + (price * (item.quantity || 1));
+        }
+        return sum;
+      }, 0);
+    }
+    
     const tax = req.body.tax || 0;
     const shipping = req.body.shipping || 0;
     const discount = req.body.discount || 0;
     const total = subtotal + tax + shipping - discount;
+    
+    // Ensure total is a valid number
+    if (isNaN(total) || total <= 0) {
+      throw new Error('Invalid order total. Please refresh your cart.');
+    }
     
     const order = await Model.Order.create({
       orderNumber,

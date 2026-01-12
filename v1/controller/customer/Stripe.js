@@ -60,25 +60,19 @@ module.exports.confirmPayment = async (req, res, next) => {
     if (!stripe) {
       throw new Error('Stripe is not configured');
     }
-    
     await Validation.Customer.confirmPayment.validateAsync(req.body);
-    
     let order = await Model.Order.findOne({
       _id: req.body.orderId,
       customerId: req.customer._id,
       isDeleted: false
     });
-    
     if (!order) {
       throw new Error('Order not found');
     }
-    
     if (order.paymentStatus === 'paid') {
       return res.success('Payment already confirmed', order);
     }
-    
     const paymentIntent = await stripe.paymentIntents.retrieve(req.body.paymentIntentId);
-    
     if (paymentIntent.status === 'succeeded') {
       order.paymentStatus = 'paid';
       order.orderStatus = 'confirmed';
@@ -97,8 +91,90 @@ module.exports.confirmPayment = async (req, res, next) => {
         cart.total = 0;
         await cart.save();
       }
+      // Save payment method if user wants to save card
+      let savedPaymentMethod = null;
+      if (req.body.saveCard === true && paymentIntent.payment_method) {
+        try {
+          // Retrieve payment method details
+          const paymentMethod = await stripe.paymentMethods.retrieve(paymentIntent.payment_method);
+          const card = paymentMethod.card;
+
+          // Create or retrieve Stripe customer
+          let stripeCustomerId = null;
+          try {
+            const customer = await stripe.customers.create({
+              email: req.customer.email,
+              name: req.customer.name,
+              metadata: {
+                customerId: req.customer._id.toString()
+              }
+            });
+            stripeCustomerId = customer.id;
+            await stripe.paymentMethods.attach(paymentMethod.id, {
+              customer: stripeCustomerId,
+            });
+          } catch (error) {
+            console.error('Error creating Stripe customer:', error);
+          }
+
+          // Check if payment method already exists
+          let existingPaymentMethod = await Model.PaymentMethod.findOne({
+            customerId: req.customer._id,
+            stripePaymentMethodId: paymentMethod.id,
+            isDeleted: false
+          });
+
+          if (!existingPaymentMethod) {
+            // Check if this is the first payment method
+            const existingMethods = await Model.PaymentMethod.countDocuments({
+              customerId: req.customer._id,
+              isDeleted: false
+            });
+
+            savedPaymentMethod = await Model.PaymentMethod.create({
+              customerId: req.customer._id,
+              stripePaymentMethodId: paymentMethod.id,
+              stripeCustomerId: stripeCustomerId,
+              cardBrand: card.brand,
+              last4: card.last4,
+              expiryMonth: card.exp_month,
+              expiryYear: card.exp_year,
+              cardholderName: paymentMethod.billing_details?.name || req.customer.name,
+              cardType: card.funding || 'unknown',
+              isDefault: existingMethods === 0,
+              isActive: true,
+              metadata: {
+                paymentIntentId: req.body.paymentIntentId,
+                orderId: order._id.toString(),
+                savedAt: new Date()
+              }
+            });
+          } else {
+            // Update existing payment method
+            existingPaymentMethod.isActive = true;
+            existingPaymentMethod.cardBrand = card.brand;
+            existingPaymentMethod.last4 = card.last4;
+            existingPaymentMethod.expiryMonth = card.exp_month;
+            existingPaymentMethod.expiryYear = card.exp_year;
+            existingPaymentMethod.cardholderName = paymentMethod.billing_details?.name || req.customer.name;
+            await existingPaymentMethod.save();
+            savedPaymentMethod = existingPaymentMethod;
+          }
+        } catch (error) {
+          console.error('Error saving payment method:', error);
+          // Don't fail the payment if saving card fails
+        }
+      }
       
-      return res.success('Payment confirmed successfully', order);
+      return res.success('Payment confirmed successfully', {
+        order,
+        paymentMethod: savedPaymentMethod ? {
+          _id: savedPaymentMethod._id,
+          cardBrand: savedPaymentMethod.cardBrand,
+          last4: savedPaymentMethod.last4,
+          displayName: savedPaymentMethod.getDisplayName()
+        } : null
+      });
     } else {
       order.paymentStatus = 'failed';
       await order.save();

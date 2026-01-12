@@ -110,6 +110,11 @@ module.exports.checkout = Joi.object({
   tax: Joi.number().min(0).optional(),
   discount: Joi.number().min(0).optional(),
   notes: Joi.string().optional().allow(''),
+  // Card details (optional, only for stripe payment method)
+  cardNumber: Joi.string().optional().allow(''),
+  expMonth: Joi.number().integer().min(1).max(12).optional(),
+  expYear: Joi.number().integer().optional(),
+  cvc: Joi.string().optional().allow(''),
 });
 
 module.exports.createPaymentIntent = Joi.object({
@@ -119,5 +124,15 @@ module.exports.createPaymentIntent = Joi.object({
 module.exports.confirmPayment = Joi.object({
   orderId: Joi.objectId().required(),
   paymentIntentId: Joi.string().required(),
+  saveCard: Joi.boolean().optional().default(false),
+});
+
+module.exports.savePaymentMethod = Joi.object({
+  paymentIntentId: Joi.string().required(),
+  saveCard: Joi.boolean().required(),
+});
+
+module.exports.setDefaultPaymentMethod = Joi.object({
+  paymentMethodId: Joi.objectId().required(),
 });
 

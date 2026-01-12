@@ -11,6 +11,7 @@ module.exports = {
     Address: require('./Address'),
     Cart: require('./Cart'),
     Order: require('./Order'),
+    PaymentMethod: require('./PaymentMethod'),
     BandFits: require('./BandFits'),
     BandProfileShapes: require('./BandProfileShapes'),
     BandWidthCategories: require('./BandWidthCategories'),

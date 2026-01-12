@@ -6,6 +6,6 @@ module.exports = {
     AddressController: require('./Address'),
     CartController: require('./Cart'),
     OrderController: require('./Order'),
-    StripeController: require('./Stripe')
+    StripeController: require('./Stripe'),
 };
 

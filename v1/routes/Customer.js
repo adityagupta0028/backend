@@ -44,10 +44,7 @@ router.get("/getOrders", Auth.verify("Customer"), Controller.OrderController.get
 router.get("/getOrder/:id", Auth.verify("Customer"), Controller.OrderController.getOrderById);
 router.post("/cancelOrder/:id", Auth.verify("Customer"), Controller.OrderController.cancelOrder);
 
-// Stripe Payment Routes
-router.post("/createPaymentIntent", Auth.verify("Customer"), Controller.StripeController.createPaymentIntent);
-router.post("/confirmPayment", Auth.verify("Customer"), Controller.StripeController.confirmPayment);
-router.get("/getPaymentStatus/:orderId", Auth.verify("Customer"), Controller.StripeController.getPaymentStatus);
+
 
 // Filter Visibility Routes
 router.get("/getFilteredVisibility", Controller.ProductController.getFilteredVisibility);
