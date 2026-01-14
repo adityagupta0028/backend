@@ -1,7 +1,7 @@
 const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
-const stripe = require("../../../services/Stripe");
+//nst stripe = require("../../../services/Stripe");
 
 module.exports.checkout = async (req, res, next) => {
   try {
@@ -111,7 +111,7 @@ module.exports.checkout = async (req, res, next) => {
         customerId:  "cus_TmlB9YodAyvoJs",  //stripeData,
         paymentMethodId: "pm_1SpBl4P434sLpaqhQXRBqneb"      //payment_method
       }
-       const paymentIntent = await stripe.createPaymentIntent(payload);
+       //nst paymentIntent = await stripe.createPaymentIntent(payload);
       // const customerData = {
       //   email: req.customer.email,
       //   name: req.customer.name,
