@@ -13,11 +13,11 @@ router.get("/getCms",Auth.verify("Admin"), Controller.AdminController.getCms)
 router.post("/sendNotification", Controller.AdminController.sendNotification)
 
 //user management
-router.post("/addUser",upload.single('image'), Controller.UserManagementController.addUser)
-router.get("/getUsers", Controller.UserManagementController.getUsers)
-router.get("/getUserDetail/:id", Controller.UserManagementController.getUserDetail)
-router.post("/updateUser/:id",upload.single('image'), Controller.UserManagementController.updateUser)
-router.delete("/deleteUser/:id", Controller.UserManagementController.deleteUser)//team management
+router.post("/addUser", Auth.verify("Admin"), upload.single('image'), Controller.UserManagementController.addUser)
+router.get("/getUsers", Auth.verify("Admin"), Controller.UserManagementController.getUsers)
+router.get("/getUserDetail/:id", Auth.verify("Admin"), Controller.UserManagementController.getUserDetail)
+router.post("/updateUser/:id", Auth.verify("Admin"), upload.single('image'), Controller.UserManagementController.updateUser)
+router.delete("/deleteUser/:id", Auth.verify("Admin"), Controller.UserManagementController.deleteUser)//team management
 
 
 
@@ -114,6 +114,10 @@ router.get("/getFilterVisibility", Auth.verify("Admin"), Controller.FilterContro
 router.post("/updateFilterVisibility", Auth.verify("Admin"), Controller.FilterController.updateFilterVisibility);
 router.post("/updateFilterImage", Auth.verify("Admin"), upload.single('image'), Controller.FilterController.updateFilterImage);
 
-
+// Order Routes (Admin)
+router.get("/getOrders", Auth.verify("Admin"), Controller.OrderController.getOrders);
+router.get("/getOrder/:id", Auth.verify("Admin"), Controller.OrderController.getOrderById);
+router.post("/updateOrderStatus/:id", Auth.verify("Admin"), Controller.OrderController.updateOrderStatus);
+router.delete("/deleteOrder/:id", Auth.verify("Admin"), Controller.OrderController.deleteOrder);
 
 module.exports = router

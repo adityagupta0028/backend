@@ -136,3 +136,54 @@ module.exports.setDefaultPaymentMethod = Joi.object({
   paymentMethodId: Joi.objectId().required(),
 });
 
+// New Stripe service validations
+module.exports.createStripeCustomer = Joi.object({
+  email: Joi.string().email().required().messages({
+    'string.email': 'Please enter a valid email',
+    'any.required': 'Email is required',
+  }),
+});
+
+module.exports.createStripeSetupIntent = Joi.object({
+  customerId: Joi.string().required().messages({
+    'any.required': 'Customer ID is required',
+  }),
+});
+
+module.exports.confirmStripeSetupIntent = Joi.object({
+  setupIntentId: Joi.string().required().messages({
+    'any.required': 'Setup Intent ID is required',
+  }),
+  cardNumber: Joi.string().required().messages({
+    'any.required': 'Card number is required',
+  }),
+  expMonth: Joi.number().integer().min(1).max(12).required().messages({
+    'number.base': 'Expiration month must be a number',
+    'number.min': 'Expiration month must be between 1 and 12',
+    'number.max': 'Expiration month must be between 1 and 12',
+    'any.required': 'Expiration month is required',
+  }),
+  expYear: Joi.number().integer().min(new Date().getFullYear()).required().messages({
+    'number.base': 'Expiration year must be a number',
+    'number.min': 'Expiration year must be in the future',
+    'any.required': 'Expiration year is required',
+  }),
+  cvc: Joi.string().required().messages({
+    'any.required': 'CVC is required',
+  }),
+});
+
+module.exports.createStripePaymentIntent = Joi.object({
+  amount: Joi.number().min(1).required().messages({
+    'number.base': 'Amount must be a number',
+    'number.min': 'Amount must be at least 1',
+    'any.required': 'Amount is required',
+  }),
+  customerId: Joi.string().required().messages({
+    'any.required': 'Customer ID is required',
+  }),
+  paymentMethodId: Joi.string().required().messages({
+    'any.required': 'Payment Method ID is required',
+  }),
+});
+

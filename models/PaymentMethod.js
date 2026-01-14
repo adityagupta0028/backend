@@ -10,6 +10,11 @@ const paymentMethodSchema = new mongoose.Schema({
   email: {
     type: String,
   },
+  setupIntentId: {
+    type: String,
+    required: true,
+    unique: true
+  },
   // Stripe payment method ID (secure token - never store actual card details)
   stripePaymentMethodId: {
     type: String,
@@ -58,10 +63,10 @@ const paymentMethodSchema = new mongoose.Schema({
     default: 0,
     trim: true,
   },
-  orderUuid: {
-    type: String,
-    default: '',
-    trim: true,
+  orderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Order",
+    default: null
   },
   // Whether this is the default payment method
   isDefault: {
@@ -86,26 +91,7 @@ const paymentMethodSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for faster queries
-paymentMethodSchema.index({ customerId: 1, isDeleted: 1 });
-paymentMethodSchema.index({ customerId: 1, isDefault: 1, isActive: 1 });
 
-// Method to format card display (e.g., "Visa •••• 4242")
-paymentMethodSchema.methods.getDisplayName = function () {
-  const brand = this.cardBrand.charAt(0).toUpperCase() + this.cardBrand.slice(1);
-  return `${brand} •••• ${this.last4}`;
-};
-
-// Method to check if card is expired
-paymentMethodSchema.methods.isExpired = function () {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-
-  if (this.expiryYear < currentYear) return true;
-  if (this.expiryYear === currentYear && this.expiryMonth < currentMonth) return true;
-  return false;
-};
 
 module.exports = mongoose.model('PaymentMethod', paymentMethodSchema);
 

@@ -56,23 +56,24 @@ module.exports.updateTeamMember = Joi.object({
 //addUser
 module.exports.addUser = Joi.object({
   name: Joi.string().required(),
-  phone_number: Joi.string().required(),
-  gender: Joi.string().valid('male', 'female', 'other').optional(),
-  age: Joi.number().min(1).max(120).optional(),
-  nationality: Joi.string().optional(),
-  status: Joi.string().valid('Active', 'Deactivate').required(),
-  account_verified: Joi.boolean().required(),
+  email: Joi.string().email().required().messages({
+    'string.email': 'Please enter a valid email',
+    'any.required': 'Email is required',
+  }),
+  phone_number: Joi.string().optional().allow(''),
+  password: Joi.string().min(8).optional(),
+  isActive: Joi.boolean().optional(),
   image: Joi.string().optional().allow(''),
 })
 
 //updateUser
 module.exports.updateUser = Joi.object({
-  name: Joi.string().required(),
-  phone_number: Joi.string().required(),
-  gender: Joi.string().valid('male', 'female', 'other').optional(),
-  age: Joi.number().min(1).max(120).optional(),
-  nationality: Joi.string().optional(),
-  status: Joi.string().valid('Active', 'Deactivate').required(),
-  account_verified: Joi.boolean().required(),
+  name: Joi.string().optional(),
+  email: Joi.string().email().optional().messages({
+    'string.email': 'Please enter a valid email',
+  }),
+  phone_number: Joi.string().optional().allow(''),
+  password: Joi.string().min(8).optional(),
+  isActive: Joi.boolean().optional(),
   image: Joi.string().optional().allow(''),
 })

@@ -1,6 +1,7 @@
 const Model = require("../../../models/index");
 const Validation = require("../../validations");
 const constants = require("../../../common/constants");
+const StripeService = require("../../../services/Stripe");
 require('dotenv').config();
 
 let stripe;
@@ -215,6 +216,91 @@ module.exports.getPaymentStatus = async (req, res, next) => {
       orderStatus: order.orderStatus,
       amount: paymentIntent.amount / 100,
       currency: paymentIntent.currency
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// New API endpoints for Stripe service functions
+module.exports.createStripeCustomer = async (req, res, next) => {
+  try {
+    await Validation.Customer.createStripeCustomer.validateAsync(req.body);
+    
+    const customerId = await StripeService.createCustomer({
+      email: req.body.email
+    });
+    
+    if (!customerId) {
+      throw new Error('Failed to create Stripe customer');
+    }
+    
+    return res.success('Stripe customer created successfully', {
+      customerId: customerId
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports.createStripeSetupIntent = async (req, res, next) => {
+  try {
+    await Validation.Customer.createStripeSetupIntent.validateAsync(req.body);
+    
+    const setupIntentId = await StripeService.createSetupIntent(req.body.customerId);
+    
+    if (!setupIntentId) {
+      throw new Error('Failed to create setup intent');
+    }
+    
+    return res.success('Setup intent created successfully', {
+      setupIntentId: setupIntentId
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports.confirmStripeSetupIntent = async (req, res, next) => {
+  try {
+    await Validation.Customer.confirmStripeSetupIntent.validateAsync(req.body);
+    
+    const paymentMethod = await StripeService.confirmSetupIntent({
+      setupIntentId: req.body.setupIntentId,
+      cardNumber: req.body.cardNumber,
+      expMonth: req.body.expMonth,
+      expYear: req.body.expYear,
+      cvc: req.body.cvc
+    });
+    
+    if (typeof paymentMethod === 'string') {
+      throw new Error(paymentMethod);
+    }
+    
+    return res.success('Setup intent confirmed successfully', {
+      paymentMethod: paymentMethod
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports.createStripePaymentIntent = async (req, res, next) => {
+  try {
+    await Validation.Customer.createStripePaymentIntent.validateAsync(req.body);
+    
+    const paymentIntent = await StripeService.createPaymentIntent({
+      amount: req.body.amount,
+      customerId: req.body.customerId,
+      paymentMethodId: req.body.paymentMethodId
+    });
+    
+    if (!paymentIntent) {
+      throw new Error('Failed to create payment intent');
+    }
+    
+    return res.success('Payment intent created successfully', {
+      paymentIntent: paymentIntent
     });
   } catch (error) {
     next(error);
