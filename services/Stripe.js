@@ -1,12 +1,24 @@
 require('dotenv').config();
 const Stripe = require("stripe");
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-10-29.preview",
-});
+
+// Lazy initialization - only create Stripe instance when needed
+let stripe = null;
+
+const getStripe = () => {
+  if (!stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not configured. Please add it to your .env file.');
+    }
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-10-29.preview",
+    });
+  }
+  return stripe;
+};
 
 exports.createCustomer = async (payload) => {
   try {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
         email: payload.email,
       });
       return customer.id;
@@ -17,7 +29,7 @@ exports.createCustomer = async (payload) => {
 
 exports.createSetupIntent = async (customerId) => {
     try {
-        const setupIntent = await stripe.setupIntents.create({
+        const setupIntent = await getStripe().setupIntents.create({
             customer: customerId,
             automatic_payment_methods: {
               enabled: true,
@@ -33,7 +45,7 @@ exports.createSetupIntent = async (customerId) => {
 
   exports.confirmSetupIntent = async (payload) => {
     try {
-        const confirmed = await stripe.setupIntents.confirm(payload.setupIntentId, {
+        const confirmed = await getStripe().setupIntents.confirm(payload.setupIntentId, {
             payment_method_data: {
               type: "card",
               card: {
@@ -54,7 +66,7 @@ exports.createSetupIntent = async (customerId) => {
 
   exports.createPaymentIntent = async (payload) => {
     try {
-        const paymentIntent = await stripe.paymentIntents.create({
+        const paymentIntent = await getStripe().paymentIntents.create({
             amount: payload.amount,//2000,
             currency: "usd",
             customer: payload.customerId,
