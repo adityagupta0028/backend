@@ -4,7 +4,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2025-10-29.preview",
 });
 
-
 exports.createCustomer = async (payload) => {
   try {
     const customer = await stripe.customers.create({
