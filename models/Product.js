@@ -199,6 +199,11 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  gender: {
+    type: String,
+    enum: ["Male", "Female"],
+    default: "Male"
+  },
   categoryId: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'Category',

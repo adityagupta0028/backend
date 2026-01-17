@@ -38,6 +38,13 @@ router.post("/updateCartItem/:itemId", Auth.verify("Customer"), Controller.CartC
 router.delete("/removeFromCart/:itemId", Auth.verify("Customer"), Controller.CartController.removeFromCart);
 router.delete("/clearCart", Auth.verify("Customer"), Controller.CartController.clearCart);
 
+// Wishlist Routes
+router.get("/getWishlist", Auth.verify("Customer"), Controller.WishlistController.getWishlist);
+router.post("/addToWishlist", Auth.verify("Customer"), Controller.WishlistController.addToWishlist);
+router.delete("/removeFromWishlist/:productId", Auth.verify("Customer"), Controller.WishlistController.removeFromWishlist);
+router.delete("/clearWishlist", Auth.verify("Customer"), Controller.WishlistController.clearWishlist);
+router.post("/syncWishlist", Auth.verify("Customer"), Controller.WishlistController.syncWishlist);
+
 // Order Routes
 router.post("/checkout", Auth.verify("Customer"), Controller.OrderController.checkout);
 router.get("/getOrders", Auth.verify("Customer"), Controller.OrderController.getOrders);

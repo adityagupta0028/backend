@@ -10,6 +10,7 @@ module.exports = {
     Customer: require('./Customer'),
     Address: require('./Address'),
     Cart: require('./Cart'),
+    Wishlist: require('./Wishlist'),
     Order: require('./Order'),
     PaymentMethod: require('./PaymentMethod'),
     BandFits: require('./BandFits'),

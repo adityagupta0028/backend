@@ -64,6 +64,7 @@ module.exports.createProduct = Joi.object({
   matching_band_product_id: Joi.objectId().optional().allow(null),
   product_type: Joi.string().valid("Engagement Ring", "Earrings", "Pendant", "Bracelet").optional().allow(''),
   collection_name: Joi.string().optional().allow(''),
+  gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
     Joi.objectId()
@@ -187,6 +188,7 @@ module.exports.updateProduct = Joi.object({
   matching_band_product_id: Joi.objectId().optional().allow(null),
   product_type: Joi.string().valid("Engagement Ring", "Earrings", "Pendant", "Bracelet").optional().allow(''),
   collection_name: Joi.string().optional().allow(''),
+  gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()),
     Joi.objectId()
