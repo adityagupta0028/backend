@@ -342,11 +342,6 @@ const productSchema = new mongoose.Schema({
     ref: 'ornament_details',
     required: true
   },
-  accentStoneShapes:{
-    type: [mongoose.Schema.Types.ObjectId],
-    ref: 'accent_stone_shapes',
-      required: true
-  },
   isDeleted: {
     type: Boolean,
     default: false

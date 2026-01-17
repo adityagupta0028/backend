@@ -307,16 +307,6 @@ module.exports.createProduct = async (req, res, next) => {
       }
     }
 
-    if (req.body.accentStoneShapes) {
-      req.body.accentStoneShapes = normalizeObjectIdArray(req.body.accentStoneShapes);
-      const accentStoneShapes = await Model.AccentStoneShapes.find({
-        _id: { $in: req.body.accentStoneShapes },
-        isDeleted: false
-      });
-      if (accentStoneShapes.length !== req.body.accentStoneShapes.length) {
-        throw new Error("One or more accent stone shapes not found");
-      }
-    }
 
     // Validate matching band product ID if matching band is available
     if (req.body.matching_band_available && req.body.matching_band_product_id) {
@@ -501,6 +491,10 @@ for (const fieldname of Object.keys(metalImagesFiles)) {
       req.body.viewAngle = null;
     }
 
+    // Convert engraving_allowed string to boolean (FormData sends strings)
+    if (req.body.engraving_allowed !== undefined) {
+      req.body.engraving_allowed = req.body.engraving_allowed === 'true' || req.body.engraving_allowed === true;
+    }
 
     let product = await Model.Product.create(req.body);
     await product.populate([
@@ -516,8 +510,7 @@ for (const fieldname of Object.keys(metalImagesFiles)) {
       'styles',
       'settingFeatures',
       'motifThemes',
-      'ornamentDetails',
-      'accentStoneShapes'
+      'ornamentDetails'
     ]);
 
     return res.success(constants.MESSAGES.DATA_UPLOADED, product);
@@ -587,8 +580,7 @@ module.exports.getProducts = async (req, res, next) => {
         'styles',
         'settingFeatures',
         'motifThemes',
-        'ornamentDetails',
-        'accentStoneShapes'
+        'ornamentDetails'
       ])
       .sort({ createdAt: -1 });
 
@@ -618,7 +610,6 @@ module.exports.getProductDetail = async (req, res, next) => {
       'settingFeatures',
       'motifThemes',
       'ornamentDetails',
-      'accentStoneShapes'
     ]);
 
     if (!product) {
@@ -651,7 +642,6 @@ module.exports.getProductByProductId = async (req, res, next) => {
       'settingFeatures',
       'motifThemes',
       'ornamentDetails',
-      'accentStoneShapes'
     ]);
 
     if (!product) {
@@ -872,16 +862,6 @@ module.exports.updateProduct = async (req, res, next) => {
       }
     }
 
-    if (req.body.accentStoneShapes) {
-      req.body.accentStoneShapes = normalizeObjectIdArray(req.body.accentStoneShapes);
-      const accentStoneShapes = await Model.AccentStoneShapes.find({
-        _id: { $in: req.body.accentStoneShapes },
-        isDeleted: false
-      });
-      if (accentStoneShapes.length !== req.body.accentStoneShapes.length) {
-        throw new Error("One or more accent stone shapes not found");
-      }
-    }
 
     // Validate matching band product ID if matching band is available
     if (req.body.matching_band_available !== undefined) {
@@ -997,6 +977,11 @@ module.exports.updateProduct = async (req, res, next) => {
       req.body.viewAngle = null;
     }
 
+    // Convert engraving_allowed string to boolean (FormData sends strings)
+    if (req.body.engraving_allowed !== undefined) {
+      req.body.engraving_allowed = req.body.engraving_allowed === 'true' || req.body.engraving_allowed === true;
+    }
+
     Object.assign(product, req.body);
     await product.save();
     await product.populate([
@@ -1013,7 +998,6 @@ module.exports.updateProduct = async (req, res, next) => {
       'settingFeatures',
       'motifThemes',
       'ornamentDetails',
-      'accentStoneShapes'
     ]);
 
     return res.success(constants.MESSAGES.UPDATED_SUCCESSFULLY, product);

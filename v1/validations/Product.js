@@ -132,10 +132,6 @@ module.exports.createProduct = Joi.object({
   ornamentDetails: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
     Joi.objectId()
-  ).required(),
-  accentStoneShapes: Joi.alternatives().try(
-    Joi.array().items(Joi.objectId()).min(1),
-    Joi.objectId()
   ).required()
 });
 
@@ -251,10 +247,6 @@ module.exports.updateProduct = Joi.object({
     Joi.objectId()
   ).optional(),
   ornamentDetails: Joi.alternatives().try(
-    Joi.array().items(Joi.objectId()).min(1),
-    Joi.objectId()
-  ).optional(),
-  accentStoneShapes: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
     Joi.objectId()
   ).optional()
