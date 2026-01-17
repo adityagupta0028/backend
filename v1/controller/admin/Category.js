@@ -289,3 +289,152 @@ module.exports.deleteSubCategory = async (req, res, next) => {
   }
 }
 
+// Create SubSubCategory
+module.exports.createSubSubCategory = async (req, res, next) => {
+  try {
+    await Validation.Category.createSubSubCategory.validateAsync(req.body);
+    
+    // Check if subCategory exists
+    let subCategory = await Model.SubCategory.findOne({
+      _id: req.body.subCategoryId,
+      isDeleted: false
+    });
+    
+    if (!subCategory) {
+      throw new Error("SubCategory not found");
+    }
+    
+    if (req.file) {
+      const fileFullPath = req.file.path;
+      let filePath = `uploads/${req.file.filename}`;
+      const bucketName = "merefunds";
+      const fileUrl = await uploadFileToS3(
+        fileFullPath,
+        bucketName,
+        filePath
+      );
+      fs.unlinkSync(fileFullPath);
+      req.body.image = "/" + filePath;
+    } 
+    
+    let subSubCategory = await Model.SubSubCategory.create(req.body);
+    // Populate subCategory info
+    await subSubCategory.populate('subCategoryId');
+    
+    return res.success(constants.MESSAGES.DATA_UPLOADED, subSubCategory);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Get All SubSubCategories
+module.exports.getSubSubCategories = async (req, res, next) => {
+  try {
+    let query = {
+      isDeleted: false,
+      isActive: true
+    };
+    
+    // If subCategory ID is provided, filter by subCategory
+    if (req.query.subCategoryId) {
+      query.subCategoryId = req.query.subCategoryId;
+    }
+    
+    let subSubCategories = await Model.SubSubCategory.find(query)
+      .populate('subCategoryId')
+      .sort({ createdAt: -1 });
+    
+    return res.success(constants.MESSAGES.DATA_FETCHED, subSubCategories);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Get SubSubCategory Detail
+module.exports.getSubSubCategoryDetail = async (req, res, next) => {
+  try {
+    let subSubCategory = await Model.SubSubCategory.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    }).populate('subCategoryId');
+    
+    if (!subSubCategory) {
+      throw new Error(constants.MESSAGES.NOT_FOUND);
+    }
+    
+    return res.success(constants.MESSAGES.DATA_FETCHED, subSubCategory);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Update SubSubCategory
+module.exports.updateSubSubCategory = async (req, res, next) => {
+  try {
+    await Validation.Category.updateSubSubCategory.validateAsync(req.body);
+    
+    let subSubCategory = await Model.SubSubCategory.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    });
+    
+    if (!subSubCategory) {
+      throw new Error(constants.MESSAGES.NOT_FOUND);
+    }
+    
+    // If subCategory is being updated, verify it exists
+    if (req.body.subCategoryId) {
+      let subCategory = await Model.SubCategory.findOne({
+        _id: req.body.subCategoryId,
+        isDeleted: false
+      });
+      
+      if (!subCategory) {
+        throw new Error("SubCategory not found");
+      }
+    }
+    
+    if (req.file) {
+      const fileFullPath = req.file.path;
+      let filePath = `uploads/${req.file.filename}`;
+      const bucketName = "merefunds";
+      const fileUrl = await uploadFileToS3(
+        fileFullPath,
+        bucketName,
+        filePath
+      );
+      fs.unlinkSync(fileFullPath);
+      req.body.image = "/" + filePath;
+    } 
+    
+    Object.assign(subSubCategory, req.body);
+    await subSubCategory.save();
+    await subSubCategory.populate('subCategoryId');
+    
+    return res.success(constants.MESSAGES.UPDATED_SUCCESSFULLY, subSubCategory);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// Delete SubSubCategory
+module.exports.deleteSubSubCategory = async (req, res, next) => {
+  try {
+    let subSubCategory = await Model.SubSubCategory.findOne({
+      _id: req.params.id,
+      isDeleted: false
+    });
+    
+    if (!subSubCategory) {
+      throw new Error(constants.MESSAGES.NOT_FOUND);
+    }
+    
+    subSubCategory.isDeleted = true;
+    await subSubCategory.save();
+    
+    return res.success(constants.MESSAGES.DELETE_SUCCESSFUL, subSubCategory);
+  } catch (error) {
+    next(error);
+  }
+}
+

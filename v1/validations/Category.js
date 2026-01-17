@@ -39,3 +39,19 @@ module.exports.updateSubCategory = Joi.object({
   image: Joi.string().optional().allow(''),
 });
 
+// Create SubSubCategory
+module.exports.createSubSubCategory = Joi.object({
+  subCategoryId: Joi.objectId().required(),
+  title: Joi.string().required(),
+  subSubCategoryName: Joi.string().required(),
+  image: Joi.string().optional().allow(''),
+});
+
+// Update SubSubCategory
+module.exports.updateSubSubCategory = Joi.object({
+  subCategoryId: Joi.objectId().optional(),
+  title: Joi.string().optional(),
+  subSubCategoryName: Joi.string().optional(),
+  image: Joi.string().optional().allow(''),
+});
+

@@ -68,10 +68,14 @@ module.exports.createProduct = Joi.object({
   productSpecials: Joi.string().optional().allow('').default(''),
   gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
-    Joi.array().items(Joi.objectId()).min(1),
+    Joi.array().items(Joi.objectId()).min(1).max(1),
     Joi.objectId()
   ).required(),
   subCategoryId: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  subSubCategoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
     Joi.objectId()
   ).required(),
@@ -194,10 +198,14 @@ module.exports.updateProduct = Joi.object({
   productSpecials: Joi.string().optional().allow('').default(''),
   gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
-    Joi.array().items(Joi.objectId()),
+    Joi.array().items(Joi.objectId()).max(1),
     Joi.objectId()
   ).optional(),
   subCategoryId: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()),
+    Joi.objectId()
+  ).optional(),
+  subSubCategoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()),
     Joi.objectId()
   ).optional(),

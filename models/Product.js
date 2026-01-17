@@ -164,6 +164,10 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  gift: {
+    type: Boolean,
+    default: false
+  },
   back_type: {
     type: String,
     default: null,
@@ -232,6 +236,17 @@ const productSchema = new mongoose.Schema({
         return Array.isArray(v) && v.length > 0;
       },
       message: 'At least one subcategory is required'
+    }
+  },
+  subSubCategoryId: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'SubSubCategory',
+    required: true,
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v) && v.length > 0;
+      },
+      message: 'At least one sub-subcategory is required'
     }
   },
   images: {
@@ -352,6 +367,7 @@ const productSchema = new mongoose.Schema({
 
 productSchema.index({ categoryId: 1 });
 productSchema.index({ subCategoryId: 1 });
+productSchema.index({ subSubCategoryId: 1 });
 productSchema.index({ product_id: 1 }, { unique: true });
 productSchema.index({ status: 1, isDeleted: 1 });
 

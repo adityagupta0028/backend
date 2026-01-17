@@ -46,6 +46,13 @@ router.get("/getSubCategoryDetail/:id",Auth.verify("Admin"), Controller.Category
 router.post("/updateSubCategory/:id", Auth.verify("Admin"), upload.single('image'), Controller.CategoryController.updateSubCategory);
 router.delete("/deleteSubCategory/:id", Auth.verify("Admin"), Controller.CategoryController.deleteSubCategory);
 
+// SubSubCategory Routes
+router.post("/createSubSubCategory", Auth.verify("Admin"), upload.single('image'), Controller.CategoryController.createSubSubCategory);
+router.get("/getSubSubCategories", Auth.verify("Admin"), Controller.CategoryController.getSubSubCategories);
+router.get("/getSubSubCategoryDetail/:id", Auth.verify("Admin"), Controller.CategoryController.getSubSubCategoryDetail);
+router.post("/updateSubSubCategory/:id", Auth.verify("Admin"), upload.single('image'), Controller.CategoryController.updateSubSubCategory);
+router.delete("/deleteSubSubCategory/:id", Auth.verify("Admin"), Controller.CategoryController.deleteSubSubCategory);
+
 // Product Routes
 router.post("/createProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createProduct);
 router.get("/getProducts", Controller.ProductController.getProducts);

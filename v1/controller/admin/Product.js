@@ -125,9 +125,16 @@ module.exports.createProduct = async (req, res, next) => {
     // Normalize array fields
     if (req.body.categoryId) {
       req.body.categoryId = normalizeArray(req.body.categoryId);
+      // Validate that only one category is provided
+      if (req.body.categoryId.length > 1) {
+        throw new Error("Only one category is allowed per product");
+      }
     }
     if (req.body.subCategoryId) {
       req.body.subCategoryId = normalizeArraySubCategory(req.body.subCategoryId);
+    }
+    if (req.body.subSubCategoryId) {
+      req.body.subSubCategoryId = normalizeArraySubCategory(req.body.subSubCategoryId);
     }
     // metal_type and diamond_origin are already normalized above, but ensure they're arrays
     if (req.body.metal_type && !Array.isArray(req.body.metal_type)) {
@@ -182,6 +189,18 @@ module.exports.createProduct = async (req, res, next) => {
 
       if (subCategories.length !== req.body.subCategoryId.length) {
         throw new Error("One or more subcategories not found");
+      }
+    }
+
+    // Check if subSubCategories exist
+    if (req.body.subSubCategoryId && Array.isArray(req.body.subSubCategoryId)) {
+      const subSubCategories = await Model.SubSubCategory.find({
+        _id: { $in: req.body.subSubCategoryId },
+        isDeleted: false
+      });
+
+      if (subSubCategories.length !== req.body.subSubCategoryId.length) {
+        throw new Error("One or more sub-subcategories not found");
       }
     }
 
@@ -496,10 +515,16 @@ for (const fieldname of Object.keys(metalImagesFiles)) {
       req.body.engraving_allowed = req.body.engraving_allowed === 'true' || req.body.engraving_allowed === true;
     }
 
+    // Convert gift string to boolean (FormData sends strings)
+    if (req.body.gift !== undefined) {
+      req.body.gift = req.body.gift === 'true' || req.body.gift === true;
+    }
+
     let product = await Model.Product.create(req.body);
     await product.populate([
       'categoryId',
       'subCategoryId',
+      'subSubCategoryId',
       'settingConfigurations',
       'shankConfigurations',
       'holdingMethods',
@@ -540,6 +565,13 @@ module.exports.getProducts = async (req, res, next) => {
         : req.query.subCategoryId;
     }
 
+    // Filter by subSubcategory (support both single and array)
+    if (req.query.subSubCategoryId) {
+      query.subSubCategoryId = Array.isArray(req.query.subSubCategoryId)
+        ? { $in: req.query.subSubCategoryId }
+        : req.query.subSubCategoryId;
+    }
+
     // Filter by status
     if (req.query.status) {
       query.status = req.query.status;
@@ -570,6 +602,7 @@ module.exports.getProducts = async (req, res, next) => {
       .populate([
         'categoryId',
         'subCategoryId',
+        'subSubCategoryId',
         'settingConfigurations',
         'shankConfigurations',
         'holdingMethods',
@@ -599,6 +632,7 @@ module.exports.getProductDetail = async (req, res, next) => {
     }).populate([
       'categoryId',
       'subCategoryId',
+      'subSubCategoryId',
       'settingConfigurations',
       'shankConfigurations',
       'holdingMethods',
@@ -631,6 +665,7 @@ module.exports.getProductByProductId = async (req, res, next) => {
     }).populate([
       'categoryId',
       'subCategoryId',
+      'subSubCategoryId',
       'settingConfigurations',
       'shankConfigurations',
       'holdingMethods',
@@ -690,9 +725,16 @@ module.exports.updateProduct = async (req, res, next) => {
     // Normalize array fields
     if (req.body.categoryId) {
       req.body.categoryId = normalizeArray(req.body.categoryId);
+      // Validate that only one category is provided
+      if (req.body.categoryId.length > 1) {
+        throw new Error("Only one category is allowed per product");
+      }
     }
     if (req.body.subCategoryId) {
       req.body.subCategoryId = normalizeArray(req.body.subCategoryId);
+    }
+    if (req.body.subSubCategoryId) {
+      req.body.subSubCategoryId = normalizeArray(req.body.subSubCategoryId);
     }
     if (req.body.metal_type) {
       req.body.metal_type = normalizeArray(req.body.metal_type);
@@ -737,6 +779,18 @@ module.exports.updateProduct = async (req, res, next) => {
 
       if (subCategories.length !== req.body.subCategoryId.length) {
         throw new Error("One or more subcategories not found");
+      }
+    }
+
+    // If subSubCategories are being updated, verify they exist
+    if (req.body.subSubCategoryId && Array.isArray(req.body.subSubCategoryId)) {
+      const subSubCategories = await Model.SubSubCategory.find({
+        _id: { $in: req.body.subSubCategoryId },
+        isDeleted: false
+      });
+
+      if (subSubCategories.length !== req.body.subSubCategoryId.length) {
+        throw new Error("One or more sub-subcategories not found");
       }
     }
 
@@ -982,11 +1036,17 @@ module.exports.updateProduct = async (req, res, next) => {
       req.body.engraving_allowed = req.body.engraving_allowed === 'true' || req.body.engraving_allowed === true;
     }
 
+    // Convert gift string to boolean (FormData sends strings)
+    if (req.body.gift !== undefined) {
+      req.body.gift = req.body.gift === 'true' || req.body.gift === true;
+    }
+
     Object.assign(product, req.body);
     await product.save();
     await product.populate([
       'categoryId',
       'subCategoryId',
+      'subSubCategoryId',
       'settingConfigurations',
       'shankConfigurations',
       'holdingMethods',

@@ -5,6 +5,7 @@ module.exports = {
     Cms: require('./Cms'),
     Category: require('./Category'),
     SubCategory: require('./SubCategory'),
+    SubSubCategory: require('./SubSubCategory'),
     Product: require('./Product'),
     BannerModel:require("./Banner"),
     Customer: require('./Customer'),
