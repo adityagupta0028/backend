@@ -64,6 +64,8 @@ module.exports.createProduct = Joi.object({
   matching_band_product_id: Joi.objectId().optional().allow(null),
   product_type: Joi.string().valid("Engagement Ring", "Earrings", "Pendant", "Bracelet").optional().allow(''),
   collection_name: Joi.string().optional().allow(''),
+  collections: Joi.string().optional().allow('').default(''),
+  productSpecials: Joi.string().optional().allow('').default(''),
   gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
@@ -77,6 +79,10 @@ module.exports.createProduct = Joi.object({
   center_stone_details: Joi.string().optional().allow(''),
   side_stone_details: Joi.string().optional().allow(''),
   stone_details: Joi.string().optional().allow(''),
+  stone: Joi.alternatives().try(
+    Joi.array().items(Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")),
+    Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")
+  ).optional(),
   images: Joi.alternatives().try(
     Joi.array().items(Joi.string()).min(1),
     Joi.string()
@@ -188,6 +194,8 @@ module.exports.updateProduct = Joi.object({
   matching_band_product_id: Joi.objectId().optional().allow(null),
   product_type: Joi.string().valid("Engagement Ring", "Earrings", "Pendant", "Bracelet").optional().allow(''),
   collection_name: Joi.string().optional().allow(''),
+  collections: Joi.string().optional().allow('').default(''),
+  productSpecials: Joi.string().optional().allow('').default(''),
   gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()),
@@ -201,6 +209,10 @@ module.exports.updateProduct = Joi.object({
   center_stone_details: Joi.string().optional().allow(''),
   side_stone_details: Joi.string().optional().allow(''),
   stone_details: Joi.string().optional().allow(''),
+  stone: Joi.alternatives().try(
+    Joi.array().items(Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")),
+    Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")
+  ).optional(),
   images: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()

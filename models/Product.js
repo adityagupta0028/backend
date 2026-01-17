@@ -199,6 +199,14 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  collections: {
+    type: String,
+    default: ''
+  },
+  productSpecials: {
+    type: String,
+    default: ''
+  },
   gender: {
     type: String,
     enum: ["Male", "Female"],
@@ -258,6 +266,17 @@ const productSchema = new mongoose.Schema({
   stone_details: {
     type: String,
     default: ''
+  },
+  stone: {
+    type: [String],
+    enum: ["Diamond", "Color Diamond", "Gemstone", "None"],
+    default: [],
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v);
+      },
+      message: 'stone must be an array'
+    }
   },
   variants:[
     {

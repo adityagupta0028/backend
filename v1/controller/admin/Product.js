@@ -158,6 +158,9 @@ module.exports.createProduct = async (req, res, next) => {
     if (req.body.necklace_size) {
       req.body.necklace_size = normalizeArray(req.body.necklace_size);
     }
+    if (req.body.stone) {
+      req.body.stone = normalizeArray(req.body.stone);
+    }
 
     if (req.body.categoryId && Array.isArray(req.body.categoryId)) {
       const categories = await Model.Category.find({
@@ -718,6 +721,9 @@ module.exports.updateProduct = async (req, res, next) => {
     }
     if (req.body.necklace_size) {
       req.body.necklace_size = normalizeArray(req.body.necklace_size);
+    }
+    if (req.body.stone) {
+      req.body.stone = normalizeArray(req.body.stone);
     }
 
     // If categories are being updated, verify they exist
