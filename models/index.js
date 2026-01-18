@@ -26,6 +26,7 @@ module.exports = {
     MotifThemes: require('./MotifThemes'),
     OrnamentDetails: require('./OrnamentDetails'),
     AccentStoneShapes: require('./AccentStoneShapes'),
-    FilterVisibility: require('./FilterVisibility')
+    FilterVisibility: require('./FilterVisibility'),
+    MenuFilterSettings: require('./MenuFilterSettings')
 
 }

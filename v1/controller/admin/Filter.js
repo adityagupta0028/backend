@@ -153,3 +153,89 @@ module.exports.updateFilterImage = async (req, res, next) => {
   }
 };
 
+// Save menu filter settings
+module.exports.saveMenuFilterSettings = async (req, res, next) => {
+  try {
+    const { menuName, menuItem, filters } = req.body;
+    
+    if (!menuName || !menuItem || !filters || !Array.isArray(filters)) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "menuName, menuItem, and filters array are required"
+      });
+    }
+
+    // Validate menuName
+    const validMenuNames = ['Main Menu', 'Side Menu', 'Hero Menu'];
+    if (!validMenuNames.includes(menuName)) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "menuName must be one of: Main Menu, Side Menu, Hero Menu"
+      });
+    }
+
+    // Save or update each filter setting
+    const savePromises = filters.map(async (filter) => {
+      const { item, itemKey, items } = filter;
+      
+      if (!item || !itemKey || !Array.isArray(items)) {
+        throw new Error(`Invalid filter data: ${JSON.stringify(filter)}`);
+      }
+
+      // Find existing setting or create new one
+      const filterSetting = await Model.MenuFilterSettings.findOneAndUpdate(
+        {
+          menuName,
+          menuItem,
+          itemKey
+        },
+        {
+          menuName,
+          menuItem,
+          item,
+          itemKey,
+          items: items.map(id => typeof id === 'string' ? id : id.toString())
+        },
+        {
+          new: true,
+          upsert: true
+        }
+      );
+
+      return filterSetting;
+    });
+
+    await Promise.all(savePromises);
+
+    // Get all saved settings for this menu item
+    const savedSettings = await Model.MenuFilterSettings.find({
+      menuName,
+      menuItem
+    }).sort({ itemKey: 1 });
+
+    return res.success(constants.MESSAGES.DATA_UPDATED, savedSettings);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get menu filter settings
+module.exports.getMenuFilterSettings = async (req, res, next) => {
+  try {
+    const { menuName, menuItem } = req.query;
+    
+    if (!menuName || !menuItem) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "menuName and menuItem are required"
+      });
+    }
+
+    const filterSettings = await Model.MenuFilterSettings.find({
+      menuName,
+      menuItem
+    }).sort({ itemKey: 1 });
+
+    return res.success(constants.MESSAGES.DATA_FETCHED, filterSettings);
+  } catch (error) {
+    next(error);
+  }
+};
+

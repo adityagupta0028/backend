@@ -121,6 +121,10 @@ router.get("/getFilterVisibility", Auth.verify("Admin"), Controller.FilterContro
 router.post("/updateFilterVisibility", Auth.verify("Admin"), Controller.FilterController.updateFilterVisibility);
 router.post("/updateFilterImage", Auth.verify("Admin"), upload.single('image'), Controller.FilterController.updateFilterImage);
 
+// Menu Filter Settings Routes
+router.post("/saveMenuFilterSettings", Auth.verify("Admin"), Controller.FilterController.saveMenuFilterSettings);
+router.get("/getMenuFilterSettings", Auth.verify("Admin"), Controller.FilterController.getMenuFilterSettings);
+
 // Order Routes (Admin)
 router.get("/getOrders", Auth.verify("Admin"), Controller.OrderController.getOrders);
 router.get("/getOrder/:id", Auth.verify("Admin"), Controller.OrderController.getOrderById);
