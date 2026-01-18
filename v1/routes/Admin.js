@@ -125,6 +125,14 @@ router.post("/updateFilterImage", Auth.verify("Admin"), upload.single('image'), 
 router.post("/saveMenuFilterSettings", Auth.verify("Admin"), Controller.FilterController.saveMenuFilterSettings);
 router.get("/getMenuFilterSettings", Auth.verify("Admin"), Controller.FilterController.getMenuFilterSettings);
 
+// Hero Menu Routes
+router.post("/createHeroMenu", Auth.verify("Admin"), Controller.HeroMenuController.createHeroMenu);
+router.get("/getHeroMenus", Auth.verify("Admin"), Controller.HeroMenuController.getHeroMenus);
+router.get("/getHeroMenuByCategory/:categoryId", Auth.verify("Admin"), Controller.HeroMenuController.getHeroMenuByCategory);
+router.get("/getHeroMenuDetail/:id", Auth.verify("Admin"), Controller.HeroMenuController.getHeroMenuDetail);
+router.post("/updateHeroMenu/:id", Auth.verify("Admin"), Controller.HeroMenuController.updateHeroMenu);
+router.delete("/deleteHeroMenu/:id", Auth.verify("Admin"), Controller.HeroMenuController.deleteHeroMenu);
+
 // Order Routes (Admin)
 router.get("/getOrders", Auth.verify("Admin"), Controller.OrderController.getOrders);
 router.get("/getOrder/:id", Auth.verify("Admin"), Controller.OrderController.getOrderById);

@@ -8,6 +8,7 @@ module.exports = {
     BannerController: require("./Banner"),
     ProductAttributesController: require("./ProductAttributes"),
     FilterController: require("./Filter"),
-    OrderController: require("./Order")
+    OrderController: require("./Order"),
+    HeroMenuController: require("./HeroMenu")
 };
 

@@ -27,6 +27,7 @@ module.exports = {
     OrnamentDetails: require('./OrnamentDetails'),
     AccentStoneShapes: require('./AccentStoneShapes'),
     FilterVisibility: require('./FilterVisibility'),
-    MenuFilterSettings: require('./MenuFilterSettings')
+    MenuFilterSettings: require('./MenuFilterSettings'),
+    HeroMenu: require('./HeroMenu')
 
 }
