@@ -128,9 +128,12 @@ const productSchema = new mongoose.Schema({
       message: 'All carat weights must be greater than 0'
     }
   },
+  carat_min_weights: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
   diamond_quality: {
     type: [String],
-    enum: ["Best - D, VVS", "Better - E, VS1", "Good - F, VS2"],
     default: []
   },
   diamond_color_grade: {
@@ -190,14 +193,8 @@ const productSchema = new mongoose.Schema({
   },
   product_type: {
     type: String,
-    default: null,
-    validate: {
-      validator: function(v) {
-        // Allow null, undefined, empty string, or valid enum values
-        return !v || ["Engagement Ring", "Earrings", "Pendant", "Bracelet"].includes(v);
-      },
-      message: '{VALUE} is not a valid enum value for path `{PATH}`'
-    }
+    enum: ["Rings", "Bracelets", "Necklace", "Earrings"],
+    default: "Rings",
   },
   collection_name: {
     type: String,
@@ -230,24 +227,14 @@ const productSchema = new mongoose.Schema({
   subCategoryId: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'SubCategory',
-    required: true,
-    validate: {
-      validator: function(v) {
-        return Array.isArray(v) && v.length > 0;
-      },
-      message: 'At least one subcategory is required'
-    }
+    required: false,
+    default: []
   },
   subSubCategoryId: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'SubSubCategory',
-    required: true,
-    validate: {
-      validator: function(v) {
-        return Array.isArray(v) && v.length > 0;
-      },
-      message: 'At least one sub-subcategory is required'
-    }
+    required: false,
+    default: []
   },
   images: {
     type: [String],
@@ -270,14 +257,152 @@ const productSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  productDetailsConfiguration: {
+    type: {
+      product_details: String,
+      average_width: String,
+      rhodium_plate: String
+    },
+    default: {
+      product_details: '',
+      average_width: '',
+      rhodium_plate: 'Yes'
+    }
+  },
+  centerStoneDetailsConfiguration: [{
+    stone: {
+      type: String,
+      enum: ['Diamond', 'Color Diamond', 'Gemstone'],
+      required: true
+    },
+    diamond_origin: {
+      type: String,
+      default: ''
+    },
+    diamond_shapes: {
+      type: [String],
+      default: []
+    },
+    min_diamond_weight: {
+      type: String,
+      default: ''
+    },
+    quantity: {
+      type: String,
+      default: ''
+    },
+    average_color: {
+      type: String,
+      default: ''
+    },
+    average_clarity: {
+      type: String,
+      default: ''
+    },
+    dimensions: {
+      type: String,
+      default: ''
+    },
+    gemstone_type: {
+      type: String,
+      default: ''
+    }
+  }],
   center_stone_details: {
     type: String,
     default: ''
   },
+  sideStoneDetailsConfiguration: [{
+    stone: {
+      type: String,
+      enum: ['Diamond', 'Color Diamond', 'Gemstone'],
+      required: true
+    },
+    diamond_origin: {
+      type: String,
+      default: ''
+    },
+    diamond_shapes: {
+      type: [String],
+      default: []
+    },
+    min_diamond_weight: {
+      type: String,
+      default: ''
+    },
+    quantity: {
+      type: String,
+      default: ''
+    },
+    average_color: {
+      type: String,
+      default: ''
+    },
+    average_clarity: {
+      type: String,
+      default: ''
+    },
+    dimensions: {
+      type: String,
+      default: ''
+    },
+    gemstone_type: {
+      type: String,
+      default: ''
+    }
+  }],
   side_stone_details: {
     type: String,
     default: ''
   },
+  stoneDetailsFormConfiguration: [{
+    stone: {
+      type: String,
+      enum: ['Diamond', 'Color Diamond', 'Gemstone'],
+      required: true
+    },
+    certified: {
+      type: String,
+      enum: ['Yes', 'No'],
+      default: 'No'
+    },
+    color: {
+      type: String,
+      default: ''
+    },
+    diamond_origin: {
+      type: String,
+      default: ''
+    },
+    diamond_shapes: {
+      type: [String],
+      default: []
+    },
+    min_diamond_weight: {
+      type: String,
+      default: ''
+    },
+    quantity: {
+      type: String,
+      default: ''
+    },
+    average_color: {
+      type: String,
+      default: ''
+    },
+    average_clarity: {
+      type: String,
+      default: ''
+    },
+    dimensions: {
+      type: String,
+      default: ''
+    },
+    gemstone_type: {
+      type: String,
+      default: ''
+    }
+  }],
   stone_details: {
     type: String,
     default: ''
@@ -298,65 +423,112 @@ const productSchema = new mongoose.Schema({
       diamond_type: String,
       carat_weight: String,
       metal_type: String,
+      diamond_quality: String,
       price: Number,
       discounted_price: Number
     }
   ],
   settingConfigurations:{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'setting_configurations',
-   required: true
+    ref: 'setting_configurations'
   },
   shankConfigurations:{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'shank_configurations',
-    required: true
   },
   holdingMethods:{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'holding_methods',
-    required: true
+    ref: 'holding_methods'
   },
   bandProfileShapes:{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'band_profile_shapes',
-    required: true
+    ref: 'band_profile_shapes'
   },
   bandWidthCategories:{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'band_width_categories',
-    required: true
+    ref: 'band_width_categories'
   },
   bandFits:{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'band_fits',
-    required: true
   },
   shankTreatments:{
     type: [mongoose.Schema.Types.ObjectId],
-    ref: 'shank_treatments',
-    required: true
+    ref: 'shank_treatments'
   },
   styles:{
     type: [mongoose.Schema.Types.ObjectId],
-    ref: 'styles',
-    required: true
+    ref: 'styles'
   },
   settingFeatures:{
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'setting_features',
-    required: true
   },
   motifThemes:{
     type: [mongoose.Schema.Types.ObjectId],
-    ref: 'motif_themes',
-    required: true
+    ref: 'motif_themes'
   },
   ornamentDetails:{
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'ornament_details',
-    required: true
   },
+  flexibilityType:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'flexibility_type',
+  },
+  ProductSpecials:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'product_specials',
+  },
+  CollectionsList:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'collections',
+  },
+  chainLinkypes:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'chain_link_type',
+  },
+  stoneSettings:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'stone_setting',
+  },
+  placementFits:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'placement_fit',
+  },
+  closureTypes:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'closure_type',
+  },
+  assemblyTypes:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'assembly_type',
+  },
+  chainTypes:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'chain_type',
+  },
+  finishDetails:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'finish_detail',
+  },
+  unitOfSale:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'unit_of_sale',
+  },
+  dropShape:{
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'drop_shape',
+  },
+  attachmentType:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'attachment_type',
+  },
+  earringOrientation:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'earring_orientation',
+  },
+ 
   isDeleted: {
     type: Boolean,
     default: false

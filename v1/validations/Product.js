@@ -27,11 +27,11 @@ module.exports.createProduct = Joi.object({
   ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
-  viewAngle: Joi.string().valid("Angled view", "Top view", "Side view").optional().allow(''),
+  viewAngle: Joi.string().valid("Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3").optional().allow(''),
   metal_images: Joi.array().items(
     Joi.object({
       metal_type: Joi.string().required(),
-      view_angle: Joi.string().valid("Angled view", "Top view", "Side view").required(),
+      view_angle: Joi.string().valid("Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3").required(),
       image: Joi.string().required()
     })
   ).optional(),
@@ -43,6 +43,10 @@ module.exports.createProduct = Joi.object({
     Joi.array().items(Joi.number().greater(0)),
     Joi.number().greater(0)
   ).optional(),
+  carat_min_weights: Joi.alternatives().try(
+    Joi.object().pattern(Joi.string(), Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   diamond_quality: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()
@@ -59,6 +63,7 @@ module.exports.createProduct = Joi.object({
   ).optional(),
   engraving_text: Joi.string().optional().allow(''),
   engraving_allowed: Joi.boolean().optional(),
+  gift: Joi.boolean().optional(),
   back_type: Joi.string().valid("Push Back", "Screw Back", "Guardian Back").optional().allow(''),
   matching_band_available: Joi.boolean().optional(),
   matching_band_product_id: Joi.objectId().optional().allow(null),
@@ -72,17 +77,83 @@ module.exports.createProduct = Joi.object({
     Joi.objectId()
   ).required(),
   subCategoryId: Joi.alternatives().try(
-    Joi.array().items(Joi.objectId()).min(1),
+    Joi.array().items(Joi.objectId()),
     Joi.objectId()
-  ).required(),
+  ).optional().allow(null, ''),
   subSubCategoryId: Joi.alternatives().try(
-    Joi.array().items(Joi.objectId()).min(1),
+    Joi.array().items(Joi.objectId()),
     Joi.objectId()
-  ).required(),
+  ).optional().allow(null, ''),
   product_details: Joi.string().optional().allow(''),
+  average_width: Joi.string().optional().allow(''),
+  rhodium_plate: Joi.string().valid('Yes', 'No').optional().allow(''),
+  productDetailsConfiguration: Joi.object({
+    product_details: Joi.string().optional().allow('').default(''),
+    average_width: Joi.string().optional().allow('').default(''),
+    rhodium_plate: Joi.string().valid('Yes', 'No').optional().default('Yes')
+  }).optional(),
+  centerStoneDetailsConfiguration: Joi.array().items(
+    Joi.object({
+      stone: Joi.string().valid('Diamond', 'Color Diamond', 'Gemstone').required(),
+      diamond_origin: Joi.string().optional().allow(''),
+      diamond_shapes: Joi.array().items(Joi.string()).optional().default([]),
+      min_diamond_weight: Joi.string().optional().allow(''),
+      quantity: Joi.string().optional().allow(''),
+      average_color: Joi.string().optional().allow(''),
+      average_clarity: Joi.string().optional().allow(''),
+      dimensions: Joi.string().optional().allow(''),
+      gemstone_type: Joi.string().optional().allow('')
+    })
+  ).optional(),
   center_stone_details: Joi.string().optional().allow(''),
+  center_stone_certified: Joi.string().valid('Yes', 'No').optional().default('No'),
+  center_stone_shape: Joi.string().optional().allow(''),
+  center_stone_min_weight: Joi.string().optional().allow(''),
+  center_stone_color: Joi.string().optional().allow(''),
+  center_stone_color_quality: Joi.string().optional().allow(''),
+  center_stone_clarity: Joi.string().optional().allow(''),
+  center_stone_diamond_quality: Joi.string().optional().allow(''),
+  center_stone_quality_type: Joi.string().optional().allow(''),
+  sideStoneDetailsConfiguration: Joi.array().items(
+    Joi.object({
+      stone: Joi.string().valid('Diamond', 'Color Diamond', 'Gemstone').required(),
+      diamond_origin: Joi.string().optional().allow(''),
+      diamond_shapes: Joi.array().items(Joi.string()).optional().default([]),
+      min_diamond_weight: Joi.string().optional().allow(''),
+      quantity: Joi.string().optional().allow(''),
+      average_color: Joi.string().optional().allow(''),
+      average_clarity: Joi.string().optional().allow(''),
+      dimensions: Joi.string().optional().allow(''),
+      gemstone_type: Joi.string().optional().allow('')
+    })
+  ).optional(),
   side_stone_details: Joi.string().optional().allow(''),
+  stoneDetailsFormConfiguration: Joi.array().items(
+    Joi.object({
+      stone: Joi.string().valid('Diamond', 'Color Diamond', 'Gemstone').required(),
+      certified: Joi.string().valid('Yes', 'No').optional().default('No'),
+      color: Joi.string().optional().allow(''),
+      diamond_origin: Joi.string().optional().allow(''),
+      diamond_shapes: Joi.array().items(Joi.string()).optional().default([]),
+      min_diamond_weight: Joi.string().optional().allow(''),
+      quantity: Joi.string().optional().allow(''),
+      average_color: Joi.string().optional().allow(''),
+      average_clarity: Joi.string().optional().allow(''),
+      dimensions: Joi.string().optional().allow(''),
+      gemstone_type: Joi.string().optional().allow('')
+    })
+  ).optional(),
   stone_details: Joi.string().optional().allow(''),
+  stone_details_certified: Joi.string().valid('Yes', 'No').optional().allow(''),
+  stone_details_color: Joi.string().optional().allow(''),
+  stone_details_stone: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
+  side_stone: Joi.alternatives().try(
+    Joi.array().items(Joi.string().valid("Diamond", "Color Diamond", "Gemstone")),
+    Joi.string().valid("Diamond", "Color Diamond", "Gemstone")
+  ).optional(),
   stone: Joi.alternatives().try(
     Joi.array().items(Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")),
     Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")
@@ -105,6 +176,7 @@ module.exports.createProduct = Joi.object({
       diamond_type: Joi.string().required(),
       carat_weight: Joi.string().required(),       // "0.5ct"
       metal_type: Joi.string().required(),         // "15K White Gold"
+      diamond_quality: Joi.string().optional().allow(''),
       price: Joi.number().greater(0).required(),
       discounted_price: Joi.number().greater(0).required()
     })
@@ -113,6 +185,10 @@ module.exports.createProduct = Joi.object({
   settingConfigurations: Joi.objectId().required(),
   shankConfigurations: Joi.objectId().required(),
   holdingMethods: Joi.objectId().required(),
+  styleSubCategory: Joi.objectId().optional().allow(''),
+  flexibilityType: Joi.objectId().optional().allow(''),
+  chainLinkypes: Joi.objectId().optional().allow(''),
+  closureTypes: Joi.objectId().optional().allow(''),
   bandProfileShapes: Joi.objectId().required(),
   bandWidthCategories: Joi.objectId().required(),
   bandFits: Joi.objectId().required(),
@@ -136,10 +212,21 @@ module.exports.createProduct = Joi.object({
   ornamentDetails: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
     Joi.objectId()
-  ).required()
+  ).required(),
+  stoneSettings: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()),
+    Joi.objectId(),
+    Joi.string().allow('')
+  ).optional(),
+  placementFits: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()),
+    Joi.objectId(),
+    Joi.string().allow('')
+  ).optional(),
+  sizeScale: Joi.string().optional().allow('')
 });
 
-// Update Product
+// Update Product  
 module.exports.updateProduct = Joi.object({
   product_id: Joi.string().optional(),
   product_name: Joi.string().min(2).max(100).optional(),
@@ -157,11 +244,11 @@ module.exports.updateProduct = Joi.object({
   ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
-  viewAngle: Joi.string().valid("Angled view", "Top view", "Side view").optional().allow(''),
+  viewAngle: Joi.string().valid("Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3").optional().allow(''),
   metal_images: Joi.array().items(
     Joi.object({
       metal_type: Joi.string().required(),
-      view_angle: Joi.string().valid("Angled view", "Top view", "Side view").required(),
+      view_angle: Joi.string().valid("Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3").required(),
       image: Joi.string().required()
     })
   ).optional(),
@@ -173,6 +260,10 @@ module.exports.updateProduct = Joi.object({
     Joi.array().items(Joi.number().greater(0)),
     Joi.number().greater(0)
   ).optional(),
+  carat_min_weights: Joi.alternatives().try(
+    Joi.object().pattern(Joi.string(), Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   diamond_quality: Joi.alternatives().try(
     Joi.array().items(Joi.string()),
     Joi.string()
@@ -189,6 +280,7 @@ module.exports.updateProduct = Joi.object({
   ).optional(),
   engraving_text: Joi.string().optional().allow(''),
   engraving_allowed: Joi.boolean().optional(),
+  gift: Joi.boolean().optional(),
   back_type: Joi.string().valid("Push Back", "Screw Back", "Guardian Back").optional().allow(''),
   matching_band_available: Joi.boolean().optional(),
   matching_band_product_id: Joi.objectId().optional().allow(null),
@@ -204,15 +296,77 @@ module.exports.updateProduct = Joi.object({
   subCategoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()),
     Joi.objectId()
-  ).optional(),
+  ).optional().allow(null, ''),
   subSubCategoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()),
     Joi.objectId()
-  ).optional(),
+  ).optional().allow(null, ''),
   product_details: Joi.string().optional().allow(''),
+  average_width: Joi.string().optional().allow(''),
+  rhodium_plate: Joi.string().valid('Yes', 'No').optional().allow(''),
+  productDetailsConfiguration: Joi.object({
+    product_details: Joi.string().optional().allow('').default(''),
+    average_width: Joi.string().optional().allow('').default(''),
+    rhodium_plate: Joi.string().valid('Yes', 'No').optional().default('Yes')
+  }).optional(),
+  centerStoneDetailsConfiguration: Joi.array().items(
+    Joi.object({
+      stone: Joi.string().valid('Diamond', 'Color Diamond', 'Gemstone').required(),
+      diamond_origin: Joi.string().optional().allow(''),
+      diamond_shapes: Joi.array().items(Joi.string()).optional().default([]),
+      min_diamond_weight: Joi.string().optional().allow(''),
+      quantity: Joi.string().optional().allow(''),
+      average_color: Joi.string().optional().allow(''),
+      average_clarity: Joi.string().optional().allow(''),
+      dimensions: Joi.string().optional().allow(''),
+      gemstone_type: Joi.string().optional().allow('')
+    })
+  ).optional(),
   center_stone_details: Joi.string().optional().allow(''),
+  center_stone_certified: Joi.string().valid('Yes', 'No').optional().default('No'),
+  center_stone_shape: Joi.string().optional().allow(''),
+  center_stone_min_weight: Joi.string().optional().allow(''),
+  center_stone_color: Joi.string().optional().allow(''),
+  center_stone_color_quality: Joi.string().optional().allow(''),
+  center_stone_clarity: Joi.string().optional().allow(''),
+  center_stone_diamond_quality: Joi.string().optional().allow(''),
+  center_stone_quality_type: Joi.string().optional().allow(''),
+  sideStoneDetailsConfiguration: Joi.array().items(
+    Joi.object({
+      stone: Joi.string().valid('Diamond', 'Color Diamond', 'Gemstone').required(),
+      diamond_origin: Joi.string().optional().allow(''),
+      diamond_shapes: Joi.array().items(Joi.string()).optional().default([]),
+      min_diamond_weight: Joi.string().optional().allow(''),
+      quantity: Joi.string().optional().allow(''),
+      average_color: Joi.string().optional().allow(''),
+      average_clarity: Joi.string().optional().allow(''),
+      dimensions: Joi.string().optional().allow(''),
+      gemstone_type: Joi.string().optional().allow('')
+    })
+  ).optional(),
   side_stone_details: Joi.string().optional().allow(''),
+  stoneDetailsFormConfiguration: Joi.array().items(
+    Joi.object({
+      stone: Joi.string().valid('Diamond', 'Color Diamond', 'Gemstone').required(),
+      certified: Joi.string().valid('Yes', 'No').optional().default('No'),
+      color: Joi.string().optional().allow(''),
+      diamond_origin: Joi.string().optional().allow(''),
+      diamond_shapes: Joi.array().items(Joi.string()).optional().default([]),
+      min_diamond_weight: Joi.string().optional().allow(''),
+      quantity: Joi.string().optional().allow(''),
+      average_color: Joi.string().optional().allow(''),
+      average_clarity: Joi.string().optional().allow(''),
+      dimensions: Joi.string().optional().allow(''),
+      gemstone_type: Joi.string().optional().allow('')
+    })
+  ).optional(),
   stone_details: Joi.string().optional().allow(''),
+  stone_details_certified: Joi.string().valid('Yes', 'No').optional().allow(''),
+  stone_details_color: Joi.string().optional().allow(''),
+  stone_details_stone: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   stone: Joi.alternatives().try(
     Joi.array().items(Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")),
     Joi.string().valid("Diamond", "Color Diamond", "Gemstone", "None")
@@ -234,6 +388,10 @@ module.exports.updateProduct = Joi.object({
   settingConfigurations: Joi.objectId().optional(),
   shankConfigurations: Joi.objectId().optional(),
   holdingMethods: Joi.objectId().optional(),
+  styleSubCategory: Joi.objectId().optional().allow(''),
+  flexibilityType: Joi.objectId().optional().allow(''),
+  chainLinkypes: Joi.objectId().optional().allow(''),
+  closureTypes: Joi.objectId().optional().allow(''),
   bandProfileShapes: Joi.objectId().optional(),
   bandWidthCategories: Joi.objectId().optional(),
   bandFits: Joi.objectId().optional(),
@@ -257,6 +415,17 @@ module.exports.updateProduct = Joi.object({
   ornamentDetails: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
     Joi.objectId()
-  ).optional()
+  ).optional(),
+  stoneSettings: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()),
+    Joi.objectId(),
+    Joi.string().allow('')
+  ).optional(),
+  placementFits: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()),
+    Joi.objectId(),
+    Joi.string().allow('')
+  ).optional(),
+  sizeScale: Joi.string().optional().allow('')
 });
 

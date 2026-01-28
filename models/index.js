@@ -15,6 +15,13 @@ module.exports = {
     Order: require('./Order'),
     PaymentMethod: require('./PaymentMethod'),
     BandFits: require('./BandFits'),
+    FlexibilityType: require('./FlexibilityType'),
+    ProductSpecials: require('./ProductSpecials'),
+    Collections: require('./Collections'),
+    ChainLinkType: require('./ChainLinkType'),
+    ClosureType: require('./ClosureType'),
+    StoneSetting: require('./StoneSetting'),
+    PlacementFit: require('./PlacementFit'),
     BandProfileShapes: require('./BandProfileShapes'),
     BandWidthCategories: require('./BandWidthCategories'),
     HoldingMethods: require('./HoldingMethods'),
@@ -26,8 +33,15 @@ module.exports = {
     MotifThemes: require('./MotifThemes'),
     OrnamentDetails: require('./OrnamentDetails'),
     AccentStoneShapes: require('./AccentStoneShapes'),
+    AssemblyType: require('./AssemblyType'),
+    ChainType: require('./ChainType'),
+    FinishDetail: require('./FinishDetail'),
     FilterVisibility: require('./FilterVisibility'),
     MenuFilterSettings: require('./MenuFilterSettings'),
-    HeroMenu: require('./HeroMenu')
+    HeroMenu: require('./HeroMenu'),
+    UnitOfSale: require('./UnitOfSale'),
+    DropShape: require('./DropShape'),
+    AttachmentType: require('./AttachmentType'),
+    EarringOrientation: require('./EarringOrientation')
 
 }

@@ -55,6 +55,9 @@ router.delete("/deleteSubSubCategory/:id", Auth.verify("Admin"), Controller.Cate
 
 // Product Routes
 router.post("/createProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createProduct);
+router.post("/createBraceletProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createBraceletProduct);
+router.post("/createNecklaceProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createNecklaceProduct);
+router.post("/createEarringsProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createEarringsProduct);
 router.get("/getProducts", Controller.ProductController.getProducts);
 router.get("/getProductDetail/:id", Controller.ProductController.getProductDetail);
 router.get("/getProductByProductId/:product_id", Controller.ProductController.getProductByProductId);
@@ -71,6 +74,34 @@ router.delete("/deleteBanner/:id", Auth.verify("admin"), Controller.BannerContro
 // BandFits Routes
 router.post("/createBandFit", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createBandFit);
 router.get("/getBandFits", Controller.ProductAttributesController.getBandFits);
+
+// FlexibilityType Routes
+router.post("/createFlexibilityType", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createFlexibilityType);
+router.get("/getFlexibilityTypes", Controller.ProductAttributesController.getFlexibilityTypes);
+
+// ProductSpecials Routes
+router.post("/createProductSpecial", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createProductSpecial);
+router.get("/getProductSpecials", Controller.ProductAttributesController.getProductSpecials);
+
+// Collections Routes
+router.post("/createCollection", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createCollection);
+router.get("/getCollections", Controller.ProductAttributesController.getCollections);
+
+// ChainLinkType Routes
+router.post("/createChainLinkType", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createChainLinkType);
+router.get("/getChainLinkTypes", Controller.ProductAttributesController.getChainLinkTypes);
+
+// ClosureType Routes
+router.post("/createClosureType", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createClosureType);
+router.get("/getClosureTypes", Controller.ProductAttributesController.getClosureTypes);
+
+// StoneSetting Routes
+router.post("/createStoneSetting", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createStoneSetting);
+router.get("/getStoneSettings", Controller.ProductAttributesController.getStoneSettings);
+
+// PlacementFit Routes
+router.post("/createPlacementFit", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createPlacementFit);
+router.get("/getPlacementFits", Controller.ProductAttributesController.getPlacementFits);
 
 // BandProfileShapes Routes
 router.post("/createBandProfileShape", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createBandProfileShape);
@@ -115,6 +146,34 @@ router.get("/getOrnamentDetails", Controller.ProductAttributesController.getOrna
 // AccentStoneShapes Routes
 router.post("/createAccentStoneShape", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createAccentStoneShape);
 router.get("/getAccentStoneShapes", Controller.ProductAttributesController.getAccentStoneShapes);
+
+// AssemblyType Routes
+router.post("/createAssemblyType", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createAssemblyType);
+router.get("/getAssemblyTypes", Controller.ProductAttributesController.getAssemblyTypes);
+
+// ChainType Routes
+router.post("/createChainType", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createChainType);
+router.get("/getChainTypes", Controller.ProductAttributesController.getChainTypes);
+
+// FinishDetail Routes
+router.post("/createFinishDetail", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createFinishDetail);
+router.get("/getFinishDetails", Controller.ProductAttributesController.getFinishDetails);
+
+// UnitOfSale Routes
+router.post("/createUnitOfSale", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createUnitOfSale);
+router.get("/getUnitOfSales", Controller.ProductAttributesController.getUnitOfSales);
+
+// DropShape Routes
+router.post("/createDropShape", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createDropShape);
+router.get("/getDropShapes", Controller.ProductAttributesController.getDropShapes);
+
+// AttachmentType Routes
+router.post("/createAttachmentType", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createAttachmentType);
+router.get("/getAttachmentTypes", Controller.ProductAttributesController.getAttachmentTypes);
+
+// EarringOrientation Routes
+router.post("/createEarringOrientation", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createEarringOrientation);
+router.get("/getEarringOrientations", Controller.ProductAttributesController.getEarringOrientations);
 
 // Filter Visibility Routes
 router.get("/getFilterVisibility", Auth.verify("Admin"), Controller.FilterController.getFilterVisibility);
