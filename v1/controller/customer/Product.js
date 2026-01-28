@@ -7,7 +7,7 @@ module.exports.getProducts = async (req, res, next) => {
     try {
       // Get query parameters from both body and query (support both POST and GET)
       const params = req.body 
-      const {
+      let {
         categoryId,
         subcategoryId,
         metalType,
@@ -38,7 +38,8 @@ module.exports.getProducts = async (req, res, next) => {
       };
 
       if (categoryId) {
-        const categoryIds = Array.isArray(categoryId) ? categoryId : [categoryId];
+        categoryId=categoryId=="69468b5a25a47dcbe1667e35"?["69468b5a25a47dcbe1667e35","696b71b08245c957c8788263","696b71d08245c957c878826d","696b72148245c957c8788293"]:categoryId;
+        let categoryIds = Array.isArray(categoryId) ? categoryId : [categoryId];
         matchStage.categoryId = { $in: categoryIds.map(id => 
           mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id
         )};
@@ -322,6 +323,7 @@ module.exports.getProducts = async (req, res, next) => {
         }
       });
     } catch (error) {
+      console.log('error======>', error);
       next(error);
     }
   }
