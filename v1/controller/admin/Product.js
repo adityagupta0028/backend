@@ -95,6 +95,7 @@ module.exports.createProduct = async (req, res, next) => {
         carat_weight: v.carat_weight,
         metal_type: v.metal_type,
         diamond_quality: v.diamond_quality || '',
+        shape: v.shape || '',
         price: Number(v.price),
         discounted_price: Number(v.discounted_price),
       }));
@@ -238,6 +239,9 @@ module.exports.createProduct = async (req, res, next) => {
     }
     if (req.body.stone) {
       req.body.stone = normalizeArray(req.body.stone);
+    }
+    if (req.body.design_styles) {
+      req.body.design_styles = normalizeArray(req.body.design_styles);
     }
 
     if (req.body.categoryId && Array.isArray(req.body.categoryId)) {
@@ -477,6 +481,7 @@ module.exports.createProduct = async (req, res, next) => {
     for (const fieldname of Object.keys(metalImagesFiles)) {
       const withoutPrefix = fieldname.replace('metal_images_', '');
       let metalType = '';
+      let shape = '';
       let viewAngle = '';
 
       // Try to match any view angle (longest match first for accuracy)
@@ -485,13 +490,36 @@ module.exports.createProduct = async (req, res, next) => {
       for (const va of sortedViewAngles) {
         if (withoutPrefix.endsWith('_' + va)) {
           viewAngle = va.replace(/_/g, ' ');
-          const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
-          metalType = metalTypePart.replace(/_/g, ' ');
+          const remaining = withoutPrefix.slice(0, -(va.length + 1));
+          
+          // Now parse metalType and shape from remaining part
+          // Format: metalType_shape (e.g., "14K_Rose_Gold_Oval")
+          // We need to find where shape starts - shapes are: Oval, Circle, Round, Heart
+          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          let foundShape = '';
+          let shapeIndex = -1;
+          
+          for (const s of shapes) {
+            const shapeUnderscore = s.replace(/\s+/g, '_');
+            const index = remaining.lastIndexOf('_' + shapeUnderscore);
+            if (index !== -1 && index > shapeIndex) {
+              shapeIndex = index;
+              foundShape = s;
+            }
+          }
+          
+          if (foundShape && shapeIndex !== -1) {
+            shape = foundShape;
+            metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
+          } else {
+            // Fallback: if shape not found, treat entire remaining as metalType
+            metalType = remaining.replace(/_/g, ' ');
+          }
           break;
         }
       }
 
-      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -510,6 +538,7 @@ module.exports.createProduct = async (req, res, next) => {
 
         req.body.metal_images.push({
           metal_type: metalType,
+          shape: shape,
           view_angle: viewAngle,
           image: '/' + filePath, // better to save S3 URL
         });
@@ -782,6 +811,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
         carat_weight: v.carat_weight,
         metal_type: v.metal_type,
         diamond_quality: v.diamond_quality || '',
+        shape: v.shape || '',
         price: Number(v.price),
         discounted_price: Number(v.discounted_price),
       }));
@@ -920,6 +950,9 @@ module.exports.createBraceletProduct = async (req, res, next) => {
     }
     if (req.body.stone) {
       req.body.stone = normalizeArray(req.body.stone);
+    }
+    if (req.body.design_styles) {
+      req.body.design_styles = normalizeArray(req.body.design_styles);
     }
 
     // Validate categories
@@ -1174,6 +1207,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
     for (const fieldname of Object.keys(metalImagesFiles)) {
       const withoutPrefix = fieldname.replace('metal_images_', '');
       let metalType = '';
+      let shape = '';
       let viewAngle = '';
 
       const sortedViewAngles = viewAngles.sort((a, b) => b.length - a.length);
@@ -1181,13 +1215,33 @@ module.exports.createBraceletProduct = async (req, res, next) => {
       for (const va of sortedViewAngles) {
         if (withoutPrefix.endsWith('_' + va)) {
           viewAngle = va.replace(/_/g, ' ');
-          const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
-          metalType = metalTypePart.replace(/_/g, ' ');
+          const remaining = withoutPrefix.slice(0, -(va.length + 1));
+          
+          // Parse metalType and shape from remaining part
+          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          let foundShape = '';
+          let shapeIndex = -1;
+          
+          for (const s of shapes) {
+            const shapeUnderscore = s.replace(/\s+/g, '_');
+            const index = remaining.lastIndexOf('_' + shapeUnderscore);
+            if (index !== -1 && index > shapeIndex) {
+              shapeIndex = index;
+              foundShape = s;
+            }
+          }
+          
+          if (foundShape && shapeIndex !== -1) {
+            shape = foundShape;
+            metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
+          } else {
+            metalType = remaining.replace(/_/g, ' ');
+          }
           break;
         }
       }
 
-      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -1204,6 +1258,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
 
         req.body.metal_images.push({
           metal_type: metalType,
+          shape: shape,
           view_angle: viewAngle,
           image: '/' + filePath,
         });
@@ -1559,7 +1614,7 @@ console.log("req.body for necklace", req.body);
     });
     
     // Remove optional fields from validation if not provided
-    const optionalFields = ['bandWidthCategories', 'settingConfigurations', 'shankConfigurations', 'ornamentDetails', 'bandFits', 'shankTreatments', 'placementFits'];
+    const optionalFields = ['bandWidthCategories', 'bandProfileShapes', 'settingConfigurations', 'shankConfigurations', 'ornamentDetails', 'bandFits', 'shankTreatments', 'placementFits'];
     optionalFields.forEach(field => {
       if (!bodyToValidate[field] || bodyToValidate[field] === '' || 
           (Array.isArray(bodyToValidate[field]) && bodyToValidate[field].length === 0)) {
@@ -1579,7 +1634,7 @@ console.log("req.body for necklace", req.body);
     
     // Create a modified validation schema with optional fields for necklaces
     const baseValidation = Validation.Product.createProduct.fork(
-      ['bandWidthCategories', 'settingConfigurations', 'shankConfigurations', 'ornamentDetails', 'bandFits', 'shankTreatments', 'placementFits'], 
+      ['bandWidthCategories', 'bandProfileShapes', 'settingConfigurations', 'shankConfigurations', 'ornamentDetails', 'bandFits', 'shankTreatments', 'placementFits'], 
       (schema) => schema.optional()
     );
     
@@ -1611,6 +1666,7 @@ console.log("req.body for necklace", req.body);
         carat_weight: v.carat_weight,
         metal_type: v.metal_type,
         diamond_quality: v.diamond_quality || '',
+        shape: v.shape || '',
         price: Number(v.price),
         discounted_price: Number(v.discounted_price),
       }));
@@ -1749,6 +1805,9 @@ console.log("req.body for necklace", req.body);
     }
     if (req.body.stone) {
       req.body.stone = normalizeArray(req.body.stone);
+    }
+    if (req.body.design_styles) {
+      req.body.design_styles = normalizeArray(req.body.design_styles);
     }
 
     // Validate categories
@@ -1972,6 +2031,7 @@ console.log("req.body for necklace", req.body);
     for (const fieldname of Object.keys(metalImagesFiles)) {
       const withoutPrefix = fieldname.replace('metal_images_', '');
       let metalType = '';
+      let shape = '';
       let viewAngle = '';
 
       const sortedViewAngles = viewAngles.sort((a, b) => b.length - a.length);
@@ -1979,13 +2039,33 @@ console.log("req.body for necklace", req.body);
       for (const va of sortedViewAngles) {
         if (withoutPrefix.endsWith('_' + va)) {
           viewAngle = va.replace(/_/g, ' ');
-          const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
-          metalType = metalTypePart.replace(/_/g, ' ');
+          const remaining = withoutPrefix.slice(0, -(va.length + 1));
+          
+          // Parse metalType and shape from remaining part
+          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          let foundShape = '';
+          let shapeIndex = -1;
+          
+          for (const s of shapes) {
+            const shapeUnderscore = s.replace(/\s+/g, '_');
+            const index = remaining.lastIndexOf('_' + shapeUnderscore);
+            if (index !== -1 && index > shapeIndex) {
+              shapeIndex = index;
+              foundShape = s;
+            }
+          }
+          
+          if (foundShape && shapeIndex !== -1) {
+            shape = foundShape;
+            metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
+          } else {
+            metalType = remaining.replace(/_/g, ' ');
+          }
           break;
         }
       }
 
-      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -2002,6 +2082,7 @@ console.log("req.body for necklace", req.body);
 
         req.body.metal_images.push({
           metal_type: metalType,
+          shape: shape,
           view_angle: viewAngle,
           image: '/' + filePath,
         });
@@ -2414,6 +2495,7 @@ console.log("req.body for earrings", req.body);
         carat_weight: v.carat_weight,
         metal_type: v.metal_type,
         diamond_quality: v.diamond_quality || '',
+        shape: v.shape || '',
         price: Number(v.price),
         discounted_price: Number(v.discounted_price),
       }));
@@ -2549,6 +2631,9 @@ console.log("req.body for earrings", req.body);
     }
     if (req.body.stone) {
       req.body.stone = normalizeArray(req.body.stone);
+    }
+    if (req.body.design_styles) {
+      req.body.design_styles = normalizeArray(req.body.design_styles);
     }
 
     // Validate categories
@@ -2767,6 +2852,7 @@ console.log("req.body for earrings", req.body);
     for (const fieldname of Object.keys(metalImagesFiles)) {
       const withoutPrefix = fieldname.replace('metal_images_', '');
       let metalType = '';
+      let shape = '';
       let viewAngle = '';
 
       const sortedViewAngles = viewAngles.sort((a, b) => b.length - a.length);
@@ -2774,13 +2860,33 @@ console.log("req.body for earrings", req.body);
       for (const va of sortedViewAngles) {
         if (withoutPrefix.endsWith('_' + va)) {
           viewAngle = va.replace(/_/g, ' ');
-          const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
-          metalType = metalTypePart.replace(/_/g, ' ');
+          const remaining = withoutPrefix.slice(0, -(va.length + 1));
+          
+          // Parse metalType and shape from remaining part
+          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          let foundShape = '';
+          let shapeIndex = -1;
+          
+          for (const s of shapes) {
+            const shapeUnderscore = s.replace(/\s+/g, '_');
+            const index = remaining.lastIndexOf('_' + shapeUnderscore);
+            if (index !== -1 && index > shapeIndex) {
+              shapeIndex = index;
+              foundShape = s;
+            }
+          }
+          
+          if (foundShape && shapeIndex !== -1) {
+            shape = foundShape;
+            metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
+          } else {
+            metalType = remaining.replace(/_/g, ' ');
+          }
           break;
         }
       }
 
-      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -2797,6 +2903,7 @@ console.log("req.body for earrings", req.body);
 
         req.body.metal_images.push({
           metal_type: metalType,
+          shape: shape,
           view_angle: viewAngle,
           image: '/' + filePath,
         });
@@ -3231,6 +3338,12 @@ module.exports.updateProduct = async (req, res, next) => {
     if (req.body.metal_type) {
       req.body.metal_type = normalizeArray(req.body.metal_type);
     }
+    if (req.body.shape) {
+      req.body.shape = normalizeArray(req.body.shape);
+    }
+    if (req.body.karat) {
+      req.body.karat = normalizeArray(req.body.karat);
+    }
     if (req.body.diamond_origin) {
       req.body.diamond_origin = normalizeArray(req.body.diamond_origin);
     }
@@ -3248,6 +3361,9 @@ module.exports.updateProduct = async (req, res, next) => {
     }
     if (req.body.stone) {
       req.body.stone = normalizeArray(req.body.stone);
+    }
+    if (req.body.design_styles) {
+      req.body.design_styles = normalizeArray(req.body.design_styles);
     }
 
     // If categories are being updated, verify they exist
@@ -3476,27 +3592,51 @@ module.exports.updateProduct = async (req, res, next) => {
     // Process metal_images files (single image per view angle)
     if (Object.keys(metalImagesFiles).length > 0) {
       req.body.metal_images = [];
+      const viewAngles = ['Angled_view', 'Top_view', 'Side_view', 'Image_1', 'Image_2', 'Image_3'];
       Object.keys(metalImagesFiles).forEach((fieldname) => {
         const withoutPrefix = fieldname.replace('metal_images_', '');
-        const viewAngles = ['Angled_view', 'Top_view', 'Side_view'];
         let metalType = '';
+        let shape = '';
         let viewAngle = '';
 
-        for (const va of viewAngles) {
+        const sortedViewAngles = viewAngles.sort((a, b) => b.length - a.length);
+        
+        for (const va of sortedViewAngles) {
           if (withoutPrefix.endsWith('_' + va)) {
             viewAngle = va.replace(/_/g, ' ');
-            const metalTypePart = withoutPrefix.slice(0, -(va.length + 1));
-            metalType = metalTypePart.replace(/_/g, ' ');
+            const remaining = withoutPrefix.slice(0, -(va.length + 1));
+            
+            // Parse metalType and shape from remaining part
+            const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+            let foundShape = '';
+            let shapeIndex = -1;
+            
+            for (const s of shapes) {
+              const shapeUnderscore = s.replace(/\s+/g, '_');
+              const index = remaining.lastIndexOf('_' + shapeUnderscore);
+              if (index !== -1 && index > shapeIndex) {
+                shapeIndex = index;
+                foundShape = s;
+              }
+            }
+            
+            if (foundShape && shapeIndex !== -1) {
+              shape = foundShape;
+              metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
+            } else {
+              metalType = remaining.replace(/_/g, ' ');
+            }
             break;
           }
         }
 
-        if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
+        if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
           // Single image per view angle
           const imageFile = metalImagesFiles[fieldname][0];
           const imagePath = "/uploads/" + imageFile.filename;
           req.body.metal_images.push({
             metal_type: metalType,
+            shape: shape,
             view_angle: viewAngle,
             image: imagePath
           });

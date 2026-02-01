@@ -70,6 +70,26 @@ const productSchema = new mongoose.Schema({
       message: 'metal_type must be an array'
     }
   },
+  shape: {
+    type: [String],
+    default: [],
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v);
+      },
+      message: 'shape must be an array'
+    }
+  },
+  karat: {
+    type: [String],
+    default: [],
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v);
+      },
+      message: 'karat must be an array'
+    }
+  },
   metal_code: {
     type: String,
     default: ''
@@ -95,9 +115,13 @@ const productSchema = new mongoose.Schema({
         type: String,
         required: true
       },
+      shape: {
+        type: String,
+        required: true
+      },
       view_angle: {
         type: String,
-        enum: ["Angled view", "Top view", "Side view"],
+        enum: ["Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3"],
         required: true
       },
       image: {
@@ -207,6 +231,16 @@ const productSchema = new mongoose.Schema({
   productSpecials: {
     type: String,
     default: ''
+  },
+  design_styles: {
+    type: [String],
+    default: [],
+    validate: {
+      validator: function(v) {
+        return Array.isArray(v);
+      },
+      message: 'design_styles must be an array'
+    }
   },
   gender: {
     type: String,
@@ -424,6 +458,7 @@ const productSchema = new mongoose.Schema({
       carat_weight: String,
       metal_type: String,
       diamond_quality: String,
+      shape: String,
       price: Number,
       discounted_price: Number
     }

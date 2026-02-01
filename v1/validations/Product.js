@@ -25,6 +25,14 @@ module.exports.createProduct = Joi.object({
     Joi.array().items(Joi.string()).min(1),
     Joi.string()
   ).optional().allow(''),
+  shape: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
+  karat: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
   viewAngle: Joi.string().valid("Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3").optional().allow(''),
@@ -71,6 +79,10 @@ module.exports.createProduct = Joi.object({
   collection_name: Joi.string().optional().allow(''),
   collections: Joi.string().optional().allow('').default(''),
   productSpecials: Joi.string().optional().allow('').default(''),
+  design_styles: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1).max(1),
@@ -177,6 +189,7 @@ module.exports.createProduct = Joi.object({
       carat_weight: Joi.string().required(),       // "0.5ct"
       metal_type: Joi.string().required(),         // "15K White Gold"
       diamond_quality: Joi.string().optional().allow(''),
+      shape: Joi.string().optional().allow(''),
       price: Joi.number().greater(0).required(),
       discounted_price: Joi.number().greater(0).required()
     })
@@ -242,12 +255,21 @@ module.exports.updateProduct = Joi.object({
     Joi.array().items(Joi.string()),
     Joi.string()
   ).optional().allow(''),
+  shape: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
+  karat: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   metal_code: Joi.string().optional().allow(''),
   metal_price: Joi.number().greater(0).optional(),
   viewAngle: Joi.string().valid("Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3").optional().allow(''),
   metal_images: Joi.array().items(
     Joi.object({
       metal_type: Joi.string().required(),
+      shape: Joi.string().required(),
       view_angle: Joi.string().valid("Angled view", "Top view", "Side view", "Image 1", "Image 2", "Image 3").required(),
       image: Joi.string().required()
     })
@@ -288,6 +310,10 @@ module.exports.updateProduct = Joi.object({
   collection_name: Joi.string().optional().allow(''),
   collections: Joi.string().optional().allow('').default(''),
   productSpecials: Joi.string().optional().allow('').default(''),
+  design_styles: Joi.alternatives().try(
+    Joi.array().items(Joi.string()),
+    Joi.string()
+  ).optional().allow(''),
   gender: Joi.string().valid("Male", "Female").optional().default("Male"),
   categoryId: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).max(1),
