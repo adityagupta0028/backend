@@ -3,6 +3,7 @@ const Validation = require("../../validations");
 const constants = require("../../../common/constants");
 const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 const fs = require("fs");
+const csv = require("csv-parser");
 const Joi = require("joi").defaults((schema) => {
   switch (schema.type) {
     case "string":
@@ -3715,6 +3716,263 @@ module.exports.deleteProduct = async (req, res, next) => {
 
     return res.success(constants.MESSAGES.DELETE_SUCCESSFUL, product);
   } catch (error) {
+    next(error);
+  }
+}
+
+// Import Ring Products from CSV
+module.exports.importRingProducts = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    // Parse CSV file
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => {
+          results.push(row);
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    const createdProducts = [];
+    const skippedProducts = [];
+
+    // Process each row
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2; // +2 because row 1 is header, and arrays are 0-indexed
+
+      try {
+        // Extract and validate required fields
+        const productName = row['product_name'] || row['Product Name'] || '';
+        const productId = row['product_id'] || row['Product ID'] || '';
+        const description = row['description'] || row['Description'] || '';
+        const categoryId = row['categoryId'] || row['Category ID'] || '';
+        const subCategoryIds = (row['subCategoryId'] || row['Sub Category ID'] || '').split(',').map(id => id.trim()).filter(id => id);
+        const subSubCategoryIds = (row['subSubCategoryId'] || row['Sub SubCategory ID'] || '').split(',').map(id => id.trim()).filter(id => id);
+        
+        // Diamond Origin (Stone Type)
+        const diamondOrigin = (row['diamond_origin'] || row['Diamond Origin'] || row['Stone Type'] || '').toLowerCase();
+        if (!diamondOrigin || (diamondOrigin !== 'natural' && diamondOrigin !== 'lab grown' && diamondOrigin !== 'lab-grown')) {
+          errors.push(`Row ${rowNumber}: Invalid or missing diamond_origin. Must be 'natural' or 'lab grown'`);
+          continue;
+        }
+        const normalizedDiamondOrigin = diamondOrigin === 'lab-grown' || diamondOrigin === 'lab grown' ? 'Lab Grown' : 'Natural';
+
+        // Carat Weights (comma-separated)
+        const caratWeightsStr = row['carat_weight'] || row['Carat Weight'] || '';
+        const caratWeights = caratWeightsStr.split(',').map(w => w.trim()).filter(w => w);
+        if (caratWeights.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one carat_weight is required`);
+          continue;
+        }
+
+        // Metal Colors (comma-separated: Rose Gold, Yellow Gold, White Gold, Platinum)
+        const metalColorsStr = row['metal_color'] || row['Metal Color'] || '';
+        const metalColors = metalColorsStr.split(',').map(c => c.trim()).filter(c => c);
+        if (metalColors.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one metal_color is required`);
+          continue;
+        }
+
+        // Metal Karats (comma-separated: 14K, 18K) - not required for Platinum
+        const metalKaratsStr = row['karat'] || row['Karat'] || '';
+        const metalKarats = metalKaratsStr.split(',').map(k => k.trim()).filter(k => k);
+        const hasNonPlatinum = metalColors.some(c => c.toLowerCase() !== 'platinum');
+        if (hasNonPlatinum && metalKarats.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one karat is required when metal_color is not Platinum`);
+          continue;
+        }
+
+        // Shapes (comma-separated: Oval, Circle, Round, Heart)
+        const shapesStr = row['shape'] || row['Shape'] || '';
+        const shapes = shapesStr.split(',').map(s => s.trim()).filter(s => s);
+        if (shapes.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one shape is required`);
+          continue;
+        }
+
+        // Diamond Qualities (comma-separated)
+        const diamondQualitiesStr = row['diamond_quality'] || row['Diamond Quality'] || '';
+        const diamondQualities = diamondQualitiesStr.split(',').map(q => q.trim()).filter(q => q);
+        if (diamondQualities.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one diamond_quality is required`);
+          continue;
+        }
+
+        // Generate metal types (combinations of color + karat, except Platinum)
+        const metalTypes = [];
+        metalColors.forEach(color => {
+          if (color.toLowerCase() === 'platinum') {
+            metalTypes.push('Platinum');
+          } else {
+            metalKarats.forEach(karat => {
+              metalTypes.push(`${karat} ${color}`);
+            });
+          }
+        });
+
+        // Generate variants: Stone Type × Carat × Metal Type × Diamond Quality × Shape
+        const variants = [];
+        caratWeights.forEach(carat => {
+          metalTypes.forEach(metalType => {
+            diamondQualities.forEach(quality => {
+              shapes.forEach(shape => {
+                // Get price and discounted_price from CSV or use defaults
+                const price = parseFloat(row[`price_${carat}_${metalType.replace(/\s+/g, '_')}_${quality.replace(/\s+/g, '_')}_${shape}`]) || 
+                              parseFloat(row['price']) || 0;
+                const discountedPrice = parseFloat(row[`discounted_price_${carat}_${metalType.replace(/\s+/g, '_')}_${quality.replace(/\s+/g, '_')}_${shape}`]) || 
+                                        parseFloat(row['discounted_price']) || 0;
+
+                variants.push({
+                  diamond_type: normalizedDiamondOrigin,
+                  carat_weight: `${carat}ct`,
+                  metal_type: metalType,
+                  diamond_quality: quality,
+                  shape: shape,
+                  price: price,
+                  discounted_price: discountedPrice,
+                });
+              });
+            });
+          });
+        });
+
+        if (variants.length === 0) {
+          errors.push(`Row ${rowNumber}: No variants generated`);
+          continue;
+        }
+
+        // Check if product_id already exists
+        let finalProductId = productId.trim() || `PROD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const existingProduct = await Model.Product.findOne({
+          product_id: finalProductId,
+          isDeleted: false
+        });
+
+        if (existingProduct) {
+          skippedProducts.push({ row: rowNumber, productId: finalProductId, reason: 'Product ID already exists' });
+          continue;
+        }
+
+        // Prepare product data
+        const productData = {
+          product_id: finalProductId,
+          product_name: productName.trim() || `Product ${finalProductId}`,
+          description: description.trim() || '',
+          categoryId: [categoryId],
+          subCategoryId: subCategoryIds,
+          subSubCategoryId: subSubCategoryIds,
+          metal_type: metalTypes,
+          shape: shapes,
+          karat: metalKarats,
+          diamond_origin: [normalizedDiamondOrigin],
+          carat_weight: caratWeights.map(w => parseFloat(w)),
+          diamond_quality: diamondQualities,
+          variants: variants,
+          status: (row['status'] || row['Status'] || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+          images: [], // Images ignored as per requirement
+          videos: [],
+          metal_images: [],
+          engraving_allowed: (row['engraving'] || row['Engraving'] || 'false').toLowerCase() === 'true',
+          gift: (row['gift'] || row['Gift'] || 'false').toLowerCase() === 'true',
+          gender: (row['gender'] || row['Gender'] || 'Male').toLowerCase() === 'male' ? 'Male' : 'Female',
+          productSpecials: row['product_specials'] || row['Product Specials'] || '',
+          collections: row['collections'] || row['Collections'] || '',
+          stone: (row['stone'] || row['Stone'] || '').split(',').map(s => s.trim()).filter(s => s),
+          design_styles: (row['design_styles'] || row['Design Styles'] || '').split(',').map(s => s.trim()).filter(s => s),
+          settingConfigurations: row['settingConfigurations'] || row['Setting Configurations'] || null,
+          shankConfigurations: row['shankConfigurations'] || row['Shank Configurations'] || null,
+          bandProfileShapes: row['bandProfileShapes'] || row['Band Profile Shapes'] || null,
+          bandWidthCategories: row['bandWidthCategories'] || row['Band Width Categories'] || null,
+          bandFits: row['bandFits'] || row['Band Fits'] || null,
+          shankTreatments: (row['shankTreatments'] || row['Shank Treatments'] || '').split(',').map(id => id.trim()).filter(id => id),
+          styles: (row['styles'] || row['Styles'] || '').split(',').map(id => id.trim()).filter(id => id),
+          settingFeatures: (row['settingFeatures'] || row['Setting Features'] || '').split(',').map(id => id.trim()).filter(id => id),
+          motifThemes: (row['motifThemes'] || row['Motif Themes'] || '').split(',').map(id => id.trim()).filter(id => id),
+          ornamentDetails: (row['ornamentDetails'] || row['Ornament Details'] || '').split(',').map(id => id.trim()).filter(id => id),
+          productDetailsConfiguration: {
+            product_details: row['product_details'] || row['Product Details'] || '',
+            average_width: row['average_width'] || row['Average Width'] || '',
+            rhodium_plate: row['rhodium_plate'] || row['Rhodium Plate'] || 'Yes',
+          },
+        };
+
+        // Validate required ObjectId fields
+        if (!productData.settingConfigurations || !productData.shankConfigurations || 
+            !productData.bandProfileShapes || !productData.bandWidthCategories || !productData.bandFits) {
+          errors.push(`Row ${rowNumber}: Missing required configuration fields (settingConfigurations, shankConfigurations, bandProfileShapes, bandWidthCategories, bandFits)`);
+          continue;
+        }
+
+        if (productData.shankTreatments.length === 0 || productData.styles.length === 0 || 
+            productData.settingFeatures.length === 0 || productData.motifThemes.length === 0 || 
+            productData.ornamentDetails.length === 0) {
+          errors.push(`Row ${rowNumber}: Missing required multi-select fields (shankTreatments, styles, settingFeatures, motifThemes, ornamentDetails)`);
+          continue;
+        }
+
+        // Create product
+        const product = await Model.Product.create(productData);
+        await product.populate([
+          'categoryId',
+          'subCategoryId',
+          'subSubCategoryId',
+          'settingConfigurations',
+          'shankConfigurations',
+          'bandProfileShapes',
+          'bandWidthCategories',
+          'bandFits',
+          'shankTreatments',
+          'styles',
+          'settingFeatures',
+          'motifThemes',
+          'ornamentDetails'
+        ]);
+
+        createdProducts.push({
+          product_id: product.product_id,
+          product_name: product.product_name,
+          variants_count: variants.length
+        });
+
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    // Clean up uploaded file
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("CSV import completed", {
+      total_rows: results.length,
+      created: createdProducts.length,
+      skipped: skippedProducts.length,
+      errors: errors.length,
+      created_products: createdProducts,
+      skipped_products: skippedProducts,
+      error_details: errors
+    });
+
+  } catch (error) {
+    // Clean up uploaded file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     next(error);
   }
 }

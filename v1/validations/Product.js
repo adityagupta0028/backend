@@ -114,7 +114,11 @@ module.exports.createProduct = Joi.object({
       average_color: Joi.string().optional().allow(''),
       average_clarity: Joi.string().optional().allow(''),
       dimensions: Joi.string().optional().allow(''),
-      gemstone_type: Joi.string().optional().allow('')
+      gemstone_type: Joi.string().optional().allow(''),
+      holding_methods: Joi.alternatives().try(
+        Joi.array().items(Joi.objectId()),
+        Joi.objectId()
+      ).optional().default([])
     })
   ).optional(),
   center_stone_details: Joi.string().optional().allow(''),
@@ -136,7 +140,11 @@ module.exports.createProduct = Joi.object({
       average_color: Joi.string().optional().allow(''),
       average_clarity: Joi.string().optional().allow(''),
       dimensions: Joi.string().optional().allow(''),
-      gemstone_type: Joi.string().optional().allow('')
+      gemstone_type: Joi.string().optional().allow(''),
+      holding_methods: Joi.alternatives().try(
+        Joi.array().items(Joi.objectId()),
+        Joi.objectId()
+      ).optional().default([])
     })
   ).optional(),
   side_stone_details: Joi.string().optional().allow(''),
@@ -152,7 +160,11 @@ module.exports.createProduct = Joi.object({
       average_color: Joi.string().optional().allow(''),
       average_clarity: Joi.string().optional().allow(''),
       dimensions: Joi.string().optional().allow(''),
-      gemstone_type: Joi.string().optional().allow('')
+      gemstone_type: Joi.string().optional().allow(''),
+      holding_methods: Joi.alternatives().try(
+        Joi.array().items(Joi.objectId()),
+        Joi.objectId()
+      ).optional().default([])
     })
   ).optional(),
   stone_details: Joi.string().optional().allow(''),
@@ -197,7 +209,7 @@ module.exports.createProduct = Joi.object({
   // Radio button fields (single ObjectId)
   settingConfigurations: Joi.objectId().required(),
   shankConfigurations: Joi.objectId().required(),
-  holdingMethods: Joi.objectId().required(),
+  holdingMethods: Joi.objectId().optional(),
   styleSubCategory: Joi.objectId().optional().allow(''),
   flexibilityType: Joi.objectId().optional().allow(''),
   chainLinkypes: Joi.objectId().optional().allow(''),
@@ -367,7 +379,11 @@ module.exports.updateProduct = Joi.object({
       average_color: Joi.string().optional().allow(''),
       average_clarity: Joi.string().optional().allow(''),
       dimensions: Joi.string().optional().allow(''),
-      gemstone_type: Joi.string().optional().allow('')
+      gemstone_type: Joi.string().optional().allow(''),
+      holding_methods: Joi.alternatives().try(
+        Joi.array().items(Joi.objectId()),
+        Joi.objectId()
+      ).optional().default([])
     })
   ).optional(),
   side_stone_details: Joi.string().optional().allow(''),
@@ -383,7 +399,11 @@ module.exports.updateProduct = Joi.object({
       average_color: Joi.string().optional().allow(''),
       average_clarity: Joi.string().optional().allow(''),
       dimensions: Joi.string().optional().allow(''),
-      gemstone_type: Joi.string().optional().allow('')
+      gemstone_type: Joi.string().optional().allow(''),
+      holding_methods: Joi.alternatives().try(
+        Joi.array().items(Joi.objectId()),
+        Joi.objectId()
+      ).optional().default([])
     })
   ).optional(),
   stone_details: Joi.string().optional().allow(''),

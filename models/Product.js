@@ -340,6 +340,11 @@ const productSchema = new mongoose.Schema({
     gemstone_type: {
       type: String,
       default: ''
+    },
+    holding_methods: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'holding_methods',
+      default: []
     }
   }],
   center_stone_details: {
@@ -383,6 +388,11 @@ const productSchema = new mongoose.Schema({
     gemstone_type: {
       type: String,
       default: ''
+    },
+    holding_methods: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'holding_methods',
+      default: []
     }
   }],
   side_stone_details: {
@@ -435,6 +445,11 @@ const productSchema = new mongoose.Schema({
     gemstone_type: {
       type: String,
       default: ''
+    },
+    holding_methods: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'holding_methods',
+      default: []
     }
   }],
   stone_details: {
