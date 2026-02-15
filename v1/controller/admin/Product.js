@@ -3824,6 +3824,73 @@ module.exports.importRingProducts = async (req, res, next) => {
           }
         });
 
+        // Generate metal_images based on metal_color × shape × view_angle combinations (NOT including karat)
+        // metal_images should be based only on metal_color and shape, not metal_type (which includes karat)
+        const metalImages = [];
+        const requiredViewAngles = ['Angled view', 'Top view', 'Side view'];
+        const optionalViewAngles = ['Image 1', 'Image 2', 'Image 3'];
+        
+        // Parse metal_images from CSV if provided (JSON format)
+        let csvMetalImages = [];
+        const metalImagesStr = row['metal_images'] || row['Metal Images'] || '';
+        if (metalImagesStr.trim()) {
+          try {
+            csvMetalImages = JSON.parse(metalImagesStr);
+            if (!Array.isArray(csvMetalImages)) {
+              csvMetalImages = [];
+            }
+          } catch (e) {
+            // If JSON parsing fails, ignore and generate automatically
+            csvMetalImages = [];
+          }
+        }
+
+        // Generate metal_images for each combination: metal_color × shape × view_angle
+        // Note: metal_images uses metal_color only, NOT metal_type (which includes karat)
+        metalColors.forEach(metalColor => {
+          shapes.forEach(shape => {
+            // Add required view angles
+            requiredViewAngles.forEach(viewAngle => {
+              // Check if CSV provided image for this combination
+              // CSV can use either metal_color or metal_type format
+              const csvImage = csvMetalImages.find(img => {
+                const imgMetalType = img.metal_type || '';
+                const imgMetalColor = imgMetalType.replace(/^\d+K\s+/, ''); // Remove karat prefix if present
+                return (imgMetalType === metalColor || imgMetalColor === metalColor || img.metal_color === metalColor) && 
+                       img.shape === shape && 
+                       img.view_angle === viewAngle;
+              });
+              
+              metalImages.push({
+                metal_type: metalColor, // Use metal_color directly, not metal_type with karat
+                shape: shape,
+                view_angle: viewAngle,
+                image: csvImage?.image || `/uploads/placeholder_${metalColor.replace(/\s+/g, '_')}_${shape}_${viewAngle.replace(/\s+/g, '_')}.jpg`
+              });
+            });
+
+            // Add optional view angles if specified in CSV
+            optionalViewAngles.forEach(viewAngle => {
+              const csvImage = csvMetalImages.find(img => {
+                const imgMetalType = img.metal_type || '';
+                const imgMetalColor = imgMetalType.replace(/^\d+K\s+/, ''); // Remove karat prefix if present
+                return (imgMetalType === metalColor || imgMetalColor === metalColor || img.metal_color === metalColor) && 
+                       img.shape === shape && 
+                       img.view_angle === viewAngle;
+              });
+              
+              if (csvImage) {
+                metalImages.push({
+                  metal_type: metalColor, // Use metal_color directly
+                  shape: shape,
+                  view_angle: viewAngle,
+                  image: csvImage.image
+                });
+              }
+            });
+          });
+        });
+
         // Generate variants: Stone Type × Carat × Metal Type × Diamond Quality × Shape
         const variants = [];
         caratWeights.forEach(carat => {
@@ -3855,15 +3922,42 @@ module.exports.importRingProducts = async (req, res, next) => {
           continue;
         }
 
-        // Check if product_id already exists
-        let finalProductId = productId.trim() || `PROD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        const existingProduct = await Model.Product.findOne({
+        // Generate product_id: if provided in CSV, append random 6-digit number; otherwise generate new
+        let finalProductId;
+        if (productId.trim()) {
+          // If product_id is provided in CSV (e.g., "RING-001"), append random 6-digit number
+          const random6Digit = Math.floor(100000 + Math.random() * 900000); // Random 6-digit number (100000-999999)
+          finalProductId = `${productId.trim()}${random6Digit}`;
+        } else {
+          // If not provided, generate new product_id with random 6-digit
+          const random6Digit = Math.floor(100000 + Math.random() * 900000); // Random 6-digit number (100000-999999)
+          finalProductId = `PROD-${random6Digit}`;
+        }
+        
+        // Check if product_id already exists (retry with new random number if exists)
+        let existingProduct = await Model.Product.findOne({
           product_id: finalProductId,
           isDeleted: false
         });
 
+        // If product_id exists, generate new one (max 10 retries)
+        let retryCount = 0;
+        while (existingProduct && retryCount < 10) {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          if (productId.trim()) {
+            finalProductId = `${productId.trim()}${random6Digit}`;
+          } else {
+            finalProductId = `PROD-${random6Digit}`;
+          }
+          existingProduct = await Model.Product.findOne({
+            product_id: finalProductId,
+            isDeleted: false
+          });
+          retryCount++;
+        }
+
         if (existingProduct) {
-          skippedProducts.push({ row: rowNumber, productId: finalProductId, reason: 'Product ID already exists' });
+          skippedProducts.push({ row: rowNumber, productId: finalProductId, reason: 'Product ID already exists after retries' });
           continue;
         }
 
@@ -3885,7 +3979,7 @@ module.exports.importRingProducts = async (req, res, next) => {
           status: (row['status'] || row['Status'] || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
           images: [], // Images ignored as per requirement
           videos: [],
-          metal_images: [],
+          metal_images: metalImages,
           engraving_allowed: (row['engraving'] || row['Engraving'] || 'false').toLowerCase() === 'true',
           gift: (row['gift'] || row['Gift'] || 'false').toLowerCase() === 'true',
           gender: (row['gender'] || row['Gender'] || 'Male').toLowerCase() === 'male' ? 'Male' : 'Female',

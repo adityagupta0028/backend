@@ -64,6 +64,7 @@ router.post("/stripe/createPaymentIntent", Controller.StripeController.createStr
 
 // Filter Visibility Routes
 router.get("/getFilteredVisibility", Controller.ProductController.getFilteredVisibility);
+router.get("/getFilteredMainMenu", Controller.ProductController.getFilteredMainMenu);
 
 module.exports = router;
 

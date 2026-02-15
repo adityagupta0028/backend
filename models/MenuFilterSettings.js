@@ -6,6 +6,10 @@ const menuFilterSettingsSchema = new mongoose.Schema({
     required: true,
     enum: ['Main Menu', 'Side Menu', 'Hero Menu']
   },
+  categoryId:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+  },
   menuItem: {
     type: String,
     required: true

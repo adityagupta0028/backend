@@ -3,6 +3,9 @@ const constants = require("../../../common/constants");
 const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 const fs = require("fs");
 // Define all filter keys and their display names
+// NOTE: Keep this list in sync with:
+// - admin-frontend `filterTypes` config in `FilterManagement.tsx`
+// - `filterModelMap` below
 const FILTER_DEFINITIONS = [
   { key: 'settingConfigurations', name: 'Setting Configurations' },
   { key: 'shankConfigurations', name: 'Shank Configurations' },
@@ -10,12 +13,26 @@ const FILTER_DEFINITIONS = [
   { key: 'bandProfileShapes', name: 'Band Profile Shapes' },
   { key: 'bandWidthCategories', name: 'Band Width Categories' },
   { key: 'bandFits', name: 'Band Fits' },
+  { key: 'flexibilityTypes', name: 'Flexibility Types' },
+  { key: 'productSpecials', name: 'Product Specials' },
+  { key: 'collections', name: 'Collections' },
+  { key: 'chainLinkTypes', name: 'Chain Link Types' },
+  { key: 'closureTypes', name: 'Closure Types' },
+  { key: 'stoneSettings', name: 'Stone Settings' },
+  { key: 'placementFits', name: 'Placement Fits' },
   { key: 'shankTreatments', name: 'Shank Treatments' },
   { key: 'styles', name: 'Styles' },
   { key: 'settingFeatures', name: 'Setting Features' },
   { key: 'motifThemes', name: 'Motif Themes' },
   { key: 'ornamentDetails', name: 'Ornament Details' },
-  { key: 'accentStoneShapes', name: 'Accent Stone Shapes' }
+  { key: 'accentStoneShapes', name: 'Accent Stone Shapes' },
+  { key: 'assemblyTypes', name: 'Assembly Types' },
+  { key: 'chainTypes', name: 'Chain Types' },
+  { key: 'finishDetails', name: 'Finish Details' },
+  { key: 'unitOfSales', name: 'Unit Of Sales' },
+  { key: 'dropShapes', name: 'Drop Shapes' },
+  { key: 'attachmentTypes', name: 'Attachment Types' },
+  { key: 'earringOrientations', name: 'Earring Orientations' }
 ];
 
 // Initialize filter visibility settings
@@ -101,12 +118,26 @@ module.exports.updateFilterImage = async (req, res, next) => {
       bandProfileShapes: Model.BandProfileShapes,
       bandWidthCategories: Model.BandWidthCategories,
       bandFits: Model.BandFits,
+      flexibilityTypes: Model.FlexibilityType,
+      productSpecials: Model.ProductSpecials,
+      collections: Model.Collections,
+      chainLinkTypes: Model.ChainLinkType,
+      closureTypes: Model.ClosureType,
+      stoneSettings: Model.StoneSetting,
+      placementFits: Model.PlacementFit,
       shankTreatments: Model.ShankTreatments,
       styles: Model.Styles,
       settingFeatures: Model.SettingFeatures,
       motifThemes: Model.MotifThemes,
       ornamentDetails: Model.OrnamentDetails,
-      accentStoneShapes: Model.AccentStoneShapes
+      accentStoneShapes: Model.AccentStoneShapes,
+      assemblyTypes: Model.AssemblyType,
+      chainTypes: Model.ChainType,
+      finishDetails: Model.FinishDetail,
+      unitOfSales: Model.UnitOfSale,
+      dropShapes: Model.DropShape,
+      attachmentTypes: Model.AttachmentType,
+      earringOrientations: Model.EarringOrientation
     };
 
     const ModelClass = filterModelMap[filterKey];
@@ -156,7 +187,7 @@ module.exports.updateFilterImage = async (req, res, next) => {
 // Save menu filter settings
 module.exports.saveMenuFilterSettings = async (req, res, next) => {
   try {
-    const { menuName, menuItem, filters } = req.body;
+    let { menuName, menuItem, filters, categoryId } = req.body;
     
     if (!menuName || !menuItem || !filters || !Array.isArray(filters)) {
       return res.error(400, constants.MESSAGES.INVALID_INPUT, {
@@ -164,13 +195,22 @@ module.exports.saveMenuFilterSettings = async (req, res, next) => {
       });
     }
 
-    // Validate menuName
     const validMenuNames = ['Main Menu', 'Side Menu', 'Hero Menu'];
     if (!validMenuNames.includes(menuName)) {
       return res.error(400, constants.MESSAGES.INVALID_INPUT, {
         message: "menuName must be one of: Main Menu, Side Menu, Hero Menu"
       });
     }
+
+    if(menuItem=="Engagement Rings"){
+      categoryId = "6942e3b741e766bf37919b9c";
+     }
+     else if(menuItem=="Wedding"){
+      categoryId = "6945ae7225a47dcbe1667cb5";
+     }
+     else if(menuItem=="Jewellery" || menuItem=="Ring" || menuItem=="Bracelets" || menuItem=="Necklace" || menuItem=="Earrings"){
+      categoryId = "696b72148245c957c8788293";
+     }
 
     // Save or update each filter setting
     const savePromises = filters.map(async (filter) => {
@@ -179,6 +219,9 @@ module.exports.saveMenuFilterSettings = async (req, res, next) => {
       if (!item || !itemKey || !Array.isArray(items)) {
         throw new Error(`Invalid filter data: ${JSON.stringify(filter)}`);
       }
+
+   
+     
 
       // Find existing setting or create new one
       const filterSetting = await Model.MenuFilterSettings.findOneAndUpdate(
@@ -189,6 +232,7 @@ module.exports.saveMenuFilterSettings = async (req, res, next) => {
         },
         {
           menuName,
+          categoryId,
           menuItem,
           item,
           itemKey,
@@ -213,6 +257,7 @@ module.exports.saveMenuFilterSettings = async (req, res, next) => {
 
     return res.success(constants.MESSAGES.DATA_UPDATED, savedSettings);
   } catch (error) {
+    console.log(error,"error");
     next(error);
   }
 };

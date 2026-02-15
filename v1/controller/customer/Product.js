@@ -476,12 +476,29 @@ module.exports.getProductDetails = async (req, res, next) => {
 
 module.exports.getFilteredVisibility = async (req, res, next) => {
   try {
-    // Get all visible filters
-    const visibility = await Model.FilterVisibility.find({
-      isVisible: true
+    // Get categoryId from query parameters
+    const { categoryId } = req.query;
+
+    if (!categoryId) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "Category ID is required"
+      });
+    }
+
+    // Validate categoryId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "Invalid Category ID"
+      });
+    }
+
+    // Get all menu filter settings for the given categoryId
+    const menuFilterSettings = await Model.MenuFilterSettings.find({
+      categoryId: categoryId,
+      menuName:"Side Menu"
     });
 
-    // Map filterKey to corresponding Model
+    // Map itemKey to corresponding Model
     const filterModelMap = {
       settingConfigurations: Model.SettingConfigurations,
       shankConfigurations: Model.ShankConfigurations,
@@ -497,26 +514,27 @@ module.exports.getFilteredVisibility = async (req, res, next) => {
       accentStoneShapes: Model.AccentStoneShapes
     };
 
-    // Fetch data for each visible filter
+    // Fetch data for each menu filter setting
     const filtersData = await Promise.all(
-      visibility.map(async (filter) => {
-        const ModelClass = filterModelMap[filter.filterKey];
-        if (!ModelClass) {
+      menuFilterSettings.map(async (filterSetting) => {
+        const ModelClass = filterModelMap[filterSetting.itemKey];
+        if (!ModelClass || !filterSetting.items || filterSetting.items.length === 0) {
           return {
-            filterKey: filter.filterKey,
-            filterName: filter.filterName,
+            filterKey: filterSetting.itemKey,
+            filterName: filterSetting.item,
             data: []
           };
         }
 
-        // Fetch all non-deleted data from the corresponding model
+        // Fetch only the items specified in the items array (non-deleted)
         const data = await ModelClass.find({
+          _id: { $in: filterSetting.items },
           isDeleted: false
         }).select('_id code displayName image createdAt updatedAt').sort({ createdAt: 1 });
 
         return {
-          filterKey: filter.filterKey,
-          filterName: filter.filterName,
+          filterKey: filterSetting.itemKey,
+          filterName: filterSetting.item,
           data: data
         };
       })
@@ -525,6 +543,76 @@ module.exports.getFilteredVisibility = async (req, res, next) => {
     return res.success(constants.MESSAGES.DATA_FETCHED, {
       filters: filtersData
     });
+  } catch (error) {
+    next(error);
+  }
+}
+module.exports.getFilteredMainMenu = async (req, res, next) => {
+  try {
+    const { categoryId } = req.query;
+
+    if (!categoryId) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "Category ID is required"
+      });
+    }
+
+    // Validate categoryId is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.error(400, constants.MESSAGES.INVALID_INPUT, {
+        message: "Invalid Category ID"
+      });
+    }
+
+    // Get all menu filter settings for the given categoryId
+    const menuFilterSettings = await Model.MenuFilterSettings.find({
+      categoryId: categoryId,
+      menuName: "Main Menu"
+    });
+
+    // Map itemKey to corresponding Model
+    const filterModelMap = {
+      settingConfigurations: Model.SettingConfigurations,
+      shankConfigurations: Model.ShankConfigurations,
+      holdingMethods: Model.HoldingMethods,
+      bandProfileShapes: Model.BandProfileShapes,
+      bandWidthCategories: Model.BandWidthCategories,
+      bandFits: Model.BandFits,
+      shankTreatments: Model.ShankTreatments,
+      styles: Model.Styles,
+      settingFeatures: Model.SettingFeatures,
+      motifThemes: Model.MotifThemes,
+      ornamentDetails: Model.OrnamentDetails,
+      accentStoneShapes: Model.AccentStoneShapes
+    };
+
+    // Populate items for each menu filter setting and flatten into a single array
+    const allItems = await Promise.all(
+      menuFilterSettings.map(async (filterSetting) => {
+        const ModelClass = filterModelMap[filterSetting.itemKey];
+        let populatedItems = [];
+
+        if (ModelClass && filterSetting.items && filterSetting.items.length > 0) {
+          // Fetch the actual data for items (non-deleted)
+          populatedItems = await ModelClass.find({
+            _id: { $in: filterSetting.items },
+            isDeleted: false
+          }).select('_id code displayName image createdAt updatedAt').sort({ createdAt: 1 });
+        }
+
+        // Add itemKey to each item and return flat array
+        return populatedItems.map(item => ({
+          ...item.toObject(),
+          itemKey: filterSetting.itemKey
+        }));
+      })
+    );
+    
+    // Flatten the array of arrays into a single array
+    const flattenedItems = allItems.flat();
+    
+    return res.success(constants.MESSAGES.DATA_FETCHED, flattenedItems);
+
   } catch (error) {
     next(error);
   }
