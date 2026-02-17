@@ -59,6 +59,8 @@ router.post("/createBraceletProduct", Auth.verify("Admin"), upload.any(), Contro
 router.post("/createNecklaceProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createNecklaceProduct);
 router.post("/createEarringsProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createEarringsProduct);
 router.post("/import-ring-product", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importRingProducts);
+router.get("/export-ring-variants", Auth.verify("Admin"), Controller.ProductController.exportRingVariants);
+router.post("/import-ring-variants", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importRingVariants);
 router.get("/getProducts", Controller.ProductController.getProducts);
 router.get("/getProductDetail/:id", Controller.ProductController.getProductDetail);
 router.get("/getProductByProductId/:product_id", Controller.ProductController.getProductByProductId);

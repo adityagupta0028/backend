@@ -4,6 +4,7 @@ const constants = require("../../../common/constants");
 const { uploadFileToS3 } = require("../../../services/uploadS3Service");
 const fs = require("fs");
 const csv = require("csv-parser");
+const mongoose = require("mongoose");
 const Joi = require("joi").defaults((schema) => {
   switch (schema.type) {
     case "string":
@@ -4037,6 +4038,7 @@ module.exports.importRingProducts = async (req, res, next) => {
         ]);
 
         createdProducts.push({
+          _id: product._id,
           product_id: product.product_id,
           product_name: product.product_name,
           variants_count: variants.length
@@ -4070,4 +4072,219 @@ module.exports.importRingProducts = async (req, res, next) => {
     next(error);
   }
 }
+
+// Export Ring Product Variants to CSV
+module.exports.exportRingVariants = async (req, res, next) => {
+  try {
+    // Optional filter: specific productIds (MongoDB _id) via query param
+    // Example: /Admin/export-ring-variants?productIds=id1,id2,id3
+    const { productIds } = req.query;
+
+    let filter = { isDeleted: false };
+
+    if (productIds) {
+      const idsArray = String(productIds)
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      if (idsArray.length > 0) {
+        filter = {
+          ...filter,
+          _id: { $in: idsArray },
+        };
+      }
+    }
+
+    // Fetch non-deleted products (optionally filtered by productIds) with variants
+    const products = await Model.Product.find(filter).select('_id variants');
+
+    const rows = [];
+
+    products.forEach((product) => {
+      (product.variants || []).forEach((variant) => {
+        rows.push({
+          product_id: product._id.toString(),
+          diamond_type: variant.diamond_type || '',
+          carat_weight: variant.carat_weight || '',
+          diamond_quality: variant.diamond_quality || '',
+          shape: variant.shape || '',
+          price: typeof variant.price === 'number' ? variant.price : Number(variant.price || 0),
+          discounted_price: typeof variant.discounted_price === 'number'
+            ? variant.discounted_price
+            : Number(variant.discounted_price || 0)
+        });
+      });
+    });
+
+    // Build CSV content
+    const header = [
+      'product_id',
+      'diamond_type',
+      'carat_weight',
+      'diamond_quality',
+      'shape',
+      'price',
+      'discounted_price'
+    ];
+
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const lines = [header.join(',')];
+    rows.forEach((row) => {
+      lines.push([
+        escapeCsvValue(row.product_id),
+        escapeCsvValue(row.diamond_type),
+        escapeCsvValue(row.carat_weight),
+        escapeCsvValue(row.diamond_quality),
+        escapeCsvValue(row.shape),
+        escapeCsvValue(row.price),
+        escapeCsvValue(row.discounted_price)
+      ].join(','));
+    });
+
+    const csvContent = lines.join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="ring_variants.csv"');
+    return res.send(csvContent);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Import Ring Product Variants from CSV and update prices
+module.exports.importRingVariants = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    // Parse CSV file
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => {
+          results.push(row);
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    let updatedVariants = 0;
+    let processedRows = 0;
+
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2; // header is row 1
+
+      try {
+        const productId = (row['product_id'] || row['Product Id'] || row['Product ID'] || '').trim();
+        const diamondType = (row['diamond_type'] || row['Diamond Type'] || '').trim();
+        const caratWeight = (row['carat_weight'] || row['Carat Weight'] || '').trim();
+        const diamondQuality = (row['diamond_quality'] || row['Diamond Quality'] || '').trim();
+        const shape = (row['shape'] || row['Shape'] || '').trim();
+
+        const priceStr = (row['price'] || row['Price'] || '').toString().trim();
+        const discountedPriceStr = (row['discounted_price'] || row['Discounted Price'] || '').toString().trim();
+
+        if (!productId) {
+          errors.push(`Row ${rowNumber}: product_id is required`);
+          continue;
+        }
+
+        if (!diamondType || !caratWeight || !diamondQuality || !shape) {
+          errors.push(`Row ${rowNumber}: diamond_type, carat_weight, diamond_quality and shape are required`);
+          continue;
+        }
+
+        const price = parseFloat(priceStr || '0');
+        const discountedPrice = parseFloat(discountedPriceStr || '0');
+
+        if (isNaN(price) || isNaN(discountedPrice)) {
+          errors.push(`Row ${rowNumber}: price and discounted_price must be valid numbers`);
+          continue;
+        }
+
+        const product = await Model.Product.findOne({
+          _id: productId,
+          isDeleted: false
+        });
+
+        if (!product) {
+          errors.push(`Row ${rowNumber}: Product not found for product_id ${productId}`);
+          continue;
+        }
+
+        let variantUpdatedInProduct = 0;
+
+        // Update all variants matching the non-metal fields (ignore metal_type intentionally)
+        (product.variants || []).forEach((variant) => {
+          const vDiamondType = (variant.diamond_type || '').toString();
+          const vCaratWeight = (variant.carat_weight || '').toString();
+          const vDiamondQuality = (variant.diamond_quality || '').toString();
+          const vShape = (variant.shape || '').toString();
+
+          if (
+            vDiamondType === diamondType &&
+            vCaratWeight === caratWeight &&
+            vDiamondQuality === diamondQuality &&
+            vShape === shape
+          ) {
+            variant.price = price;
+            variant.discounted_price = discountedPrice;
+            variantUpdatedInProduct += 1;
+          }
+        });
+
+        if (variantUpdatedInProduct === 0) {
+          errors.push(`Row ${rowNumber}: No matching variants found for product_id ${productId}`);
+          continue;
+        }
+
+        await product.save();
+
+        updatedVariants += variantUpdatedInProduct;
+        processedRows += 1;
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    // Clean up uploaded file
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("Variant CSV import completed", {
+      total_rows: results.length,
+      processed_rows: processedRows,
+      updated_variants: updatedVariants,
+      errors: errors.length,
+      error_details: errors
+    });
+  } catch (error) {
+    // Clean up uploaded file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+};
 
