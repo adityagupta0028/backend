@@ -345,6 +345,15 @@ const productSchema = new mongoose.Schema({
       type: [mongoose.Schema.Types.ObjectId],
       ref: 'holding_methods',
       default: []
+    },
+    certified: {
+      type: String,
+      enum: ['Yes', 'No'],
+      default: 'No'
+    },
+    color: {
+      type: String,
+      default: ''
     }
   }],
   center_stone_details: {
