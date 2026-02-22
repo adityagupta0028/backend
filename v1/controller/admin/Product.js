@@ -281,7 +281,12 @@ module.exports.createProduct = async (req, res, next) => {
       }
     }
 
-    // Validate radio button fields (single ObjectId)
+    // Validate radio button fields (single ObjectId) and multi-select (arrays)
+    const normalizeObjectIdArray = (value) => {
+      if (!value) return value;
+      return Array.isArray(value) ? value : [value];
+    };
+
     if (req.body.settingConfigurations) {
       const settingConfig = await Model.SettingConfigurations.findOne({
         _id: req.body.settingConfigurations,
@@ -293,12 +298,13 @@ module.exports.createProduct = async (req, res, next) => {
     }
 
     if (req.body.shankConfigurations) {
-      const shankConfig = await Model.ShankConfigurations.findOne({
-        _id: req.body.shankConfigurations,
+      req.body.shankConfigurations = normalizeObjectIdArray(req.body.shankConfigurations);
+      const shankConfigs = await Model.ShankConfigurations.find({
+        _id: { $in: req.body.shankConfigurations },
         isDeleted: false
       });
-      if (!shankConfig) {
-        throw new Error("Shank configuration not found");
+      if (shankConfigs.length !== req.body.shankConfigurations.length) {
+        throw new Error("One or more shank configurations not found");
       }
     }
 
@@ -313,12 +319,13 @@ module.exports.createProduct = async (req, res, next) => {
     }
 
     if (req.body.bandProfileShapes) {
-      const bandProfileShape = await Model.BandProfileShapes.findOne({
-        _id: req.body.bandProfileShapes,
+      req.body.bandProfileShapes = normalizeObjectIdArray(req.body.bandProfileShapes);
+      const bandProfileShapesList = await Model.BandProfileShapes.find({
+        _id: { $in: req.body.bandProfileShapes },
         isDeleted: false
       });
-      if (!bandProfileShape) {
-        throw new Error("Band profile shape not found");
+      if (bandProfileShapesList.length !== req.body.bandProfileShapes.length) {
+        throw new Error("One or more band profile shapes not found");
       }
     }
 
@@ -343,11 +350,6 @@ module.exports.createProduct = async (req, res, next) => {
     }
 
     // Normalize and validate multi-select dropdown fields (array of ObjectIds)
-    const normalizeObjectIdArray = (value) => {
-      if (!value) return value;
-      return Array.isArray(value) ? value : [value];
-    };
-
     if (req.body.shankTreatments) {
       req.body.shankTreatments = normalizeObjectIdArray(req.body.shankTreatments);
       const shankTreatments = await Model.ShankTreatments.find({
@@ -497,7 +499,7 @@ module.exports.createProduct = async (req, res, next) => {
           // Now parse metalType and shape from remaining part
           // Format: metalType_shape (e.g., "14K_Rose_Gold_Oval")
           // We need to find where shape starts - shapes are: Oval, Circle, Round, Heart
-          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          const shapes = ['Round', 'Princess', 'Cushion', 'Oval', 'Emerald', 'Pear', 'Radiant', 'Asscher', 'Marquise', 'Heart', 'Circle'];
           let foundShape = '';
           let shapeIndex = -1;
           
@@ -514,14 +516,20 @@ module.exports.createProduct = async (req, res, next) => {
             shape = foundShape;
             metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
           } else {
-            // Fallback: if shape not found, treat entire remaining as metalType
-            metalType = remaining.replace(/_/g, ' ');
+            // Fallback: use last segment as shape so we still accept the image (e.g. 14K_Yellow_Gold_Princess -> shape Princess)
+            const parts = remaining.split('_');
+            if (parts.length >= 2) {
+              shape = parts.pop().replace(/_/g, ' ');
+              metalType = parts.join('_').replace(/_/g, ' ');
+            } else {
+              metalType = remaining.replace(/_/g, ' ');
+            }
           }
           break;
         }
       }
 
-      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -540,7 +548,7 @@ module.exports.createProduct = async (req, res, next) => {
 
         req.body.metal_images.push({
           metal_type: metalType,
-          shape: shape,
+          shape: shape || '',
           view_angle: viewAngle,
           image: '/' + filePath, // better to save S3 URL
         });
@@ -1220,7 +1228,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
           const remaining = withoutPrefix.slice(0, -(va.length + 1));
           
           // Parse metalType and shape from remaining part
-          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          const shapes = ['Round', 'Princess', 'Cushion', 'Oval', 'Emerald', 'Pear', 'Radiant', 'Asscher', 'Marquise', 'Heart', 'Circle'];
           let foundShape = '';
           let shapeIndex = -1;
           
@@ -1237,13 +1245,19 @@ module.exports.createBraceletProduct = async (req, res, next) => {
             shape = foundShape;
             metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
           } else {
-            metalType = remaining.replace(/_/g, ' ');
+            const parts = remaining.split('_');
+            if (parts.length >= 2) {
+              shape = parts.pop().replace(/_/g, ' ');
+              metalType = parts.join('_').replace(/_/g, ' ');
+            } else {
+              metalType = remaining.replace(/_/g, ' ');
+            }
           }
           break;
         }
       }
 
-      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -1260,7 +1274,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
 
         req.body.metal_images.push({
           metal_type: metalType,
-          shape: shape,
+          shape: shape || '',
           view_angle: viewAngle,
           image: '/' + filePath,
         });
@@ -1318,13 +1332,9 @@ module.exports.createBraceletProduct = async (req, res, next) => {
     if (!req.body.centerStoneDetailsConfiguration && req.body.stone && Array.isArray(req.body.stone)) {
       req.body.centerStoneDetailsConfiguration = [];
       
-      // Get center stone fields
+      // Get center stone fields (Diamond Shape, Color, Color Quality, Clarity removed from UI)
       const centerStoneCertified = req.body.center_stone_certified || 'No';
-      const centerStoneShape = req.body.center_stone_shape || '';
       const centerStoneMinWeight = req.body.center_stone_min_weight || '';
-      const centerStoneColor = req.body.center_stone_color || '';
-      const centerStoneColorQuality = req.body.center_stone_color_quality || '';
-      const centerStoneClarity = req.body.center_stone_clarity || '';
       const centerStoneDiamondQuality = req.body.center_stone_diamond_quality || '';
       const centerStoneQualityType = req.body.center_stone_quality_type || '';
 
@@ -1334,13 +1344,13 @@ module.exports.createBraceletProduct = async (req, res, next) => {
           const config = {
             stone: stone,
             certified: centerStoneCertified,
-            color: centerStoneColor,
+            color: '',
             diamond_origin: req.body.diamond_origin && Array.isArray(req.body.diamond_origin) ? req.body.diamond_origin[0] : (req.body.diamond_origin || ''),
-            diamond_shapes: centerStoneShape ? [centerStoneShape] : [],
+            diamond_shapes: [],
             min_diamond_weight: centerStoneMinWeight,
             quantity: '',
-            average_color: centerStoneColorQuality,
-            average_clarity: centerStoneClarity,
+            average_color: '',
+            average_clarity: '',
             dimensions: '',
             gemstone_type: ''
           };
@@ -2044,7 +2054,7 @@ console.log("req.body for necklace", req.body);
           const remaining = withoutPrefix.slice(0, -(va.length + 1));
           
           // Parse metalType and shape from remaining part
-          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          const shapes = ['Round', 'Princess', 'Cushion', 'Oval', 'Emerald', 'Pear', 'Radiant', 'Asscher', 'Marquise', 'Heart', 'Circle'];
           let foundShape = '';
           let shapeIndex = -1;
           
@@ -2061,13 +2071,19 @@ console.log("req.body for necklace", req.body);
             shape = foundShape;
             metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
           } else {
-            metalType = remaining.replace(/_/g, ' ');
+            const parts = remaining.split('_');
+            if (parts.length >= 2) {
+              shape = parts.pop().replace(/_/g, ' ');
+              metalType = parts.join('_').replace(/_/g, ' ');
+            } else {
+              metalType = remaining.replace(/_/g, ' ');
+            }
           }
           break;
         }
       }
 
-      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -2084,7 +2100,7 @@ console.log("req.body for necklace", req.body);
 
         req.body.metal_images.push({
           metal_type: metalType,
-          shape: shape,
+          shape: shape || '',
           view_angle: viewAngle,
           image: '/' + filePath,
         });
@@ -2142,13 +2158,9 @@ console.log("req.body for necklace", req.body);
     if (!req.body.centerStoneDetailsConfiguration && req.body.stone && Array.isArray(req.body.stone)) {
       req.body.centerStoneDetailsConfiguration = [];
       
-      // Get center stone fields
+      // Get center stone fields (Diamond Shape, Color, Color Quality, Clarity removed from UI)
       const centerStoneCertified = req.body.center_stone_certified || 'No';
-      const centerStoneShape = req.body.center_stone_shape || '';
       const centerStoneMinWeight = req.body.center_stone_min_weight || '';
-      const centerStoneColor = req.body.center_stone_color || '';
-      const centerStoneColorQuality = req.body.center_stone_color_quality || '';
-      const centerStoneClarity = req.body.center_stone_clarity || '';
       const centerStoneDiamondQuality = req.body.center_stone_diamond_quality || '';
       const centerStoneQualityType = req.body.center_stone_quality_type || '';
 
@@ -2158,13 +2170,13 @@ console.log("req.body for necklace", req.body);
           const config = {
             stone: stone,
             certified: centerStoneCertified,
-            color: centerStoneColor,
+            color: '',
             diamond_origin: req.body.diamond_origin && Array.isArray(req.body.diamond_origin) ? req.body.diamond_origin[0] : (req.body.diamond_origin || ''),
-            diamond_shapes: centerStoneShape ? [centerStoneShape] : [],
+            diamond_shapes: [],
             min_diamond_weight: centerStoneMinWeight,
             quantity: '',
-            average_color: centerStoneColorQuality,
-            average_clarity: centerStoneClarity,
+            average_color: '',
+            average_clarity: '',
             dimensions: '',
             gemstone_type: ''
           };
@@ -2865,7 +2877,7 @@ console.log("req.body for earrings", req.body);
           const remaining = withoutPrefix.slice(0, -(va.length + 1));
           
           // Parse metalType and shape from remaining part
-          const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+          const shapes = ['Round', 'Princess', 'Cushion', 'Oval', 'Emerald', 'Pear', 'Radiant', 'Asscher', 'Marquise', 'Heart', 'Circle'];
           let foundShape = '';
           let shapeIndex = -1;
           
@@ -2882,13 +2894,19 @@ console.log("req.body for earrings", req.body);
             shape = foundShape;
             metalType = remaining.slice(0, shapeIndex).replace(/_/g, ' ');
           } else {
-            metalType = remaining.replace(/_/g, ' ');
+            const parts = remaining.split('_');
+            if (parts.length >= 2) {
+              shape = parts.pop().replace(/_/g, ' ');
+              metalType = parts.join('_').replace(/_/g, ' ');
+            } else {
+              metalType = remaining.replace(/_/g, ' ');
+            }
           }
           break;
         }
       }
 
-      if (metalType && shape && viewAngle && metalImagesFiles[fieldname].length > 0) {
+      if (metalType && viewAngle && metalImagesFiles[fieldname].length > 0) {
         const imageFile = metalImagesFiles[fieldname][0];
         const filePath = "uploads/" + imageFile.filename;
 
@@ -2905,7 +2923,7 @@ console.log("req.body for earrings", req.body);
 
         req.body.metal_images.push({
           metal_type: metalType,
-          shape: shape,
+          shape: shape || '',
           view_angle: viewAngle,
           image: '/' + filePath,
         });
@@ -2963,13 +2981,9 @@ console.log("req.body for earrings", req.body);
     if (!req.body.centerStoneDetailsConfiguration && req.body.stone && Array.isArray(req.body.stone)) {
       req.body.centerStoneDetailsConfiguration = [];
       
-      // Get center stone fields
+      // Get center stone fields (Diamond Shape, Color, Color Quality, Clarity removed from UI)
       const centerStoneCertified = req.body.center_stone_certified || 'No';
-      const centerStoneShape = req.body.center_stone_shape || '';
       const centerStoneMinWeight = req.body.center_stone_min_weight || '';
-      const centerStoneColor = req.body.center_stone_color || '';
-      const centerStoneColorQuality = req.body.center_stone_color_quality || '';
-      const centerStoneClarity = req.body.center_stone_clarity || '';
       const centerStoneDiamondQuality = req.body.center_stone_diamond_quality || '';
       const centerStoneQualityType = req.body.center_stone_quality_type || '';
 
@@ -2979,13 +2993,13 @@ console.log("req.body for earrings", req.body);
           const config = {
             stone: stone,
             certified: centerStoneCertified,
-            color: centerStoneColor,
+            color: '',
             diamond_origin: req.body.diamond_origin && Array.isArray(req.body.diamond_origin) ? req.body.diamond_origin[0] : (req.body.diamond_origin || ''),
-            diamond_shapes: centerStoneShape ? [centerStoneShape] : [],
+            diamond_shapes: [],
             min_diamond_weight: centerStoneMinWeight,
             quantity: '',
-            average_color: centerStoneColorQuality,
-            average_clarity: centerStoneClarity,
+            average_color: '',
+            average_clarity: '',
             dimensions: '',
             gemstone_type: ''
           };
@@ -3404,6 +3418,12 @@ module.exports.updateProduct = async (req, res, next) => {
       }
     }
 
+    // Normalize array fields and validate references if being updated
+    const normalizeObjectIdArray = (value) => {
+      if (!value) return value;
+      return Array.isArray(value) ? value : [value];
+    };
+
     // Validate radio button fields (single ObjectId) if being updated
     if (req.body.settingConfigurations) {
       const settingConfig = await Model.SettingConfigurations.findOne({
@@ -3416,12 +3436,13 @@ module.exports.updateProduct = async (req, res, next) => {
     }
 
     if (req.body.shankConfigurations) {
-      const shankConfig = await Model.ShankConfigurations.findOne({
-        _id: req.body.shankConfigurations,
+      req.body.shankConfigurations = normalizeObjectIdArray(req.body.shankConfigurations);
+      const shankConfigs = await Model.ShankConfigurations.find({
+        _id: { $in: req.body.shankConfigurations },
         isDeleted: false
       });
-      if (!shankConfig) {
-        throw new Error("Shank configuration not found");
+      if (shankConfigs.length !== req.body.shankConfigurations.length) {
+        throw new Error("One or more shank configurations not found");
       }
     }
 
@@ -3436,12 +3457,13 @@ module.exports.updateProduct = async (req, res, next) => {
     }
 
     if (req.body.bandProfileShapes) {
-      const bandProfileShape = await Model.BandProfileShapes.findOne({
-        _id: req.body.bandProfileShapes,
+      req.body.bandProfileShapes = normalizeObjectIdArray(req.body.bandProfileShapes);
+      const bandProfileShapesList = await Model.BandProfileShapes.find({
+        _id: { $in: req.body.bandProfileShapes },
         isDeleted: false
       });
-      if (!bandProfileShape) {
-        throw new Error("Band profile shape not found");
+      if (bandProfileShapesList.length !== req.body.bandProfileShapes.length) {
+        throw new Error("One or more band profile shapes not found");
       }
     }
 
@@ -3466,11 +3488,6 @@ module.exports.updateProduct = async (req, res, next) => {
     }
 
     // Normalize and validate multi-select dropdown fields (array of ObjectIds) if being updated
-    const normalizeObjectIdArray = (value) => {
-      if (!value) return value;
-      return Array.isArray(value) ? value : [value];
-    };
-
     if (req.body.shankTreatments) {
       req.body.shankTreatments = normalizeObjectIdArray(req.body.shankTreatments);
       const shankTreatments = await Model.ShankTreatments.find({
@@ -3609,7 +3626,7 @@ module.exports.updateProduct = async (req, res, next) => {
             const remaining = withoutPrefix.slice(0, -(va.length + 1));
             
             // Parse metalType and shape from remaining part
-            const shapes = ['Oval', 'Circle', 'Round', 'Heart'];
+            const shapes = ['Round', 'Princess', 'Cushion', 'Oval', 'Emerald', 'Pear', 'Radiant', 'Asscher', 'Marquise', 'Heart', 'Circle'];
             let foundShape = '';
             let shapeIndex = -1;
             
@@ -3750,46 +3767,68 @@ module.exports.importRingProducts = async (req, res, next) => {
     const createdProducts = [];
     const skippedProducts = [];
 
+    // Helper: get row value by any of the column names (form order / aliases)
+    const getRow = (row, ...keys) => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+    const toObjectIdArray = (str) => {
+      if (!str || !String(str).trim()) return [];
+      return String(str).split(',').map(id => id.trim()).filter(id => id)
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id);
+    };
+    const toObjectId = (str) => {
+      if (!str || !String(str).trim()) return null;
+      const s = String(str).trim();
+      return mongoose.Types.ObjectId.isValid(s) ? new mongoose.Types.ObjectId(s) : null;
+    };
+
     // Process each row
     for (let i = 0; i < results.length; i++) {
       const row = results[i];
       const rowNumber = i + 2; // +2 because row 1 is header, and arrays are 0-indexed
 
       try {
-        // Extract and validate required fields
-        const productName = row['product_name'] || row['Product Name'] || '';
-        const productId = row['product_id'] || row['Product ID'] || '';
-        const description = row['description'] || row['Description'] || '';
-        const categoryId = row['categoryId'] || row['Category ID'] || '';
-        const subCategoryIds = (row['subCategoryId'] || row['Sub Category ID'] || '').split(',').map(id => id.trim()).filter(id => id);
-        const subSubCategoryIds = (row['subSubCategoryId'] || row['Sub SubCategory ID'] || '').split(',').map(id => id.trim()).filter(id => id);
+        // Extract and validate required fields (column order as per form: 1-37)
+        const productId = getRow(row, 'product_id', 'Product ID');
+        const productName = getRow(row, 'product_name', 'Product Name');
+        const description = getRow(row, 'description', 'Description');
+        const categoryIdRaw = getRow(row, 'categoryId', 'Category ID', 'Category');
+        const categoryId = categoryIdRaw && mongoose.Types.ObjectId.isValid(categoryIdRaw) ? new mongoose.Types.ObjectId(categoryIdRaw) : categoryIdRaw;
+        // 5. Sub Category - optional, multi-select
+        const subCategoryIds = toObjectIdArray(getRow(row, 'subCategoryId', 'Sub Category ID', 'Sub Category'));
+        // 6. Sub SubCategory - optional, multi-select
+        const subSubCategoryIds = toObjectIdArray(getRow(row, 'subSubCategoryId', 'Sub SubCategory ID', 'Sub SubCategory'));
         
-        // Diamond Origin (Stone Type)
-        const diamondOrigin = (row['diamond_origin'] || row['Diamond Origin'] || row['Stone Type'] || '').toLowerCase();
+        // 11. Diamond Origin (Stone Type)
+        const diamondOrigin = (getRow(row, 'diamond_origin', 'Diamond Origin', 'Stone Type') || '').toLowerCase();
         if (!diamondOrigin || (diamondOrigin !== 'natural' && diamondOrigin !== 'lab grown' && diamondOrigin !== 'lab-grown')) {
           errors.push(`Row ${rowNumber}: Invalid or missing diamond_origin. Must be 'natural' or 'lab grown'`);
           continue;
         }
         const normalizedDiamondOrigin = diamondOrigin === 'lab-grown' || diamondOrigin === 'lab grown' ? 'Lab Grown' : 'Natural';
 
-        // Carat Weights (comma-separated)
-        const caratWeightsStr = row['carat_weight'] || row['Carat Weight'] || '';
+        // 15. Carat Weight (comma-separated)
+        const caratWeightsStr = getRow(row, 'carat_weight', 'Carat Weight');
         const caratWeights = caratWeightsStr.split(',').map(w => w.trim()).filter(w => w);
         if (caratWeights.length === 0) {
           errors.push(`Row ${rowNumber}: At least one carat_weight is required`);
           continue;
         }
 
-        // Metal Colors (comma-separated: Rose Gold, Yellow Gold, White Gold, Platinum)
-        const metalColorsStr = row['metal_color'] || row['Metal Color'] || '';
+        // 7. Metal Color (comma-separated)
+        const metalColorsStr = getRow(row, 'metal_color', 'Metal Color');
         const metalColors = metalColorsStr.split(',').map(c => c.trim()).filter(c => c);
         if (metalColors.length === 0) {
           errors.push(`Row ${rowNumber}: At least one metal_color is required`);
           continue;
         }
 
-        // Metal Karats (comma-separated: 14K, 18K) - not required for Platinum
-        const metalKaratsStr = row['karat'] || row['Karat'] || '';
+        // 9. Karat (comma-separated: 14K, 18K) - not required for Platinum
+        const metalKaratsStr = getRow(row, 'karat', 'Karat');
         const metalKarats = metalKaratsStr.split(',').map(k => k.trim()).filter(k => k);
         const hasNonPlatinum = metalColors.some(c => c.toLowerCase() !== 'platinum');
         if (hasNonPlatinum && metalKarats.length === 0) {
@@ -3797,16 +3836,16 @@ module.exports.importRingProducts = async (req, res, next) => {
           continue;
         }
 
-        // Shapes (comma-separated: Oval, Circle, Round, Heart)
-        const shapesStr = row['shape'] || row['Shape'] || '';
+        // 8. Shape (comma-separated)
+        const shapesStr = getRow(row, 'shape', 'Shape');
         const shapes = shapesStr.split(',').map(s => s.trim()).filter(s => s);
         if (shapes.length === 0) {
           errors.push(`Row ${rowNumber}: At least one shape is required`);
           continue;
         }
 
-        // Diamond Qualities (comma-separated)
-        const diamondQualitiesStr = row['diamond_quality'] || row['Diamond Quality'] || '';
+        // 13. Diamond Quality (comma-separated)
+        const diamondQualitiesStr = getRow(row, 'diamond_quality', 'Diamond Quality');
         const diamondQualities = diamondQualitiesStr.split(',').map(q => q.trim()).filter(q => q);
         if (diamondQualities.length === 0) {
           errors.push(`Row ${rowNumber}: At least one diamond_quality is required`);
@@ -3900,9 +3939,9 @@ module.exports.importRingProducts = async (req, res, next) => {
               shapes.forEach(shape => {
                 // Get price and discounted_price from CSV or use defaults
                 const price = parseFloat(row[`price_${carat}_${metalType.replace(/\s+/g, '_')}_${quality.replace(/\s+/g, '_')}_${shape}`]) || 
-                              parseFloat(row['price']) || 0;
+                              parseFloat(getRow(row, 'price', 'Price')) || 0;
                 const discountedPrice = parseFloat(row[`discounted_price_${carat}_${metalType.replace(/\s+/g, '_')}_${quality.replace(/\s+/g, '_')}_${shape}`]) || 
-                                        parseFloat(row['discounted_price']) || 0;
+                                        parseFloat(getRow(row, 'discounted_price', 'Discounted Price')) || 0;
 
                 variants.push({
                   diamond_type: normalizedDiamondOrigin,
@@ -3962,7 +4001,7 @@ module.exports.importRingProducts = async (req, res, next) => {
           continue;
         }
 
-        // Prepare product data
+        // Prepare product data (field order aligned with form 1-37)
         const productData = {
           product_id: finalProductId,
           product_name: productName.trim() || `Product ${finalProductId}`,
@@ -3973,42 +4012,53 @@ module.exports.importRingProducts = async (req, res, next) => {
           metal_type: metalTypes,
           shape: shapes,
           karat: metalKarats,
+          design_styles: (getRow(row, 'design_styles', 'Design Styles') || '').split(',').map(s => s.trim()).filter(s => s),
           diamond_origin: [normalizedDiamondOrigin],
-          carat_weight: caratWeights.map(w => parseFloat(w)),
+          diamond_grading: getRow(row, 'diamond_grading', 'Diamond Grading'),
           diamond_quality: diamondQualities,
+          settingConfigurations: toObjectId(getRow(row, 'settingConfigurations', 'Setting Configurations')),
+          carat_weight: caratWeights.map(w => parseFloat(w)),
+          number_of_stone: (() => {
+            const raw = getRow(row, 'number_of_stone', 'Number of Stone', 'number_of_stones');
+            if (!raw) return [];
+            return raw.split(',').map(s => { const n = parseInt(s.trim(), 10); return Number.isInteger(n) && n >= 0 ? n : null; }).filter(n => n != null);
+          })(),
+          stone: (getRow(row, 'stone', 'Stone') || '').split(',').map(s => s.trim()).filter(s => s),
+          gender: (getRow(row, 'gender', 'Gender') || 'Male').toLowerCase() === 'male' ? 'Male' : 'Female',
+          productSpecials: getRow(row, 'product_specials', 'Product Specials'),
+          collections: getRow(row, 'collections', 'Collections'),
+          ring_size: (() => {
+            const raw = getRow(row, 'ring_size', 'Ring Size');
+            if (!raw) return [];
+            return raw.split(',').map(s => { const n = parseFloat(s.trim()); return isNaN(n) ? null : n; }).filter(n => n != null);
+          })(),
+          bandWidthCategories: toObjectId(getRow(row, 'bandWidthCategories', 'Band Width Categories')),
+          bandFits: toObjectId(getRow(row, 'bandFits', 'Band Fits')),
+          shankConfigurations: toObjectIdArray(getRow(row, 'shankConfigurations', 'Shank Configurations')),
+          bandProfileShapes: toObjectIdArray(getRow(row, 'bandProfileShapes', 'Band Profile Shapes')),
+          shankTreatments: toObjectIdArray(getRow(row, 'shankTreatments', 'Shank Treatments')),
+          styles: toObjectIdArray(getRow(row, 'styles', 'Styles')),
+          settingFeatures: toObjectIdArray(getRow(row, 'settingFeatures', 'Setting Features')),
+          motifThemes: toObjectIdArray(getRow(row, 'motifThemes', 'Motif Themes')),
+          ornamentDetails: toObjectIdArray(getRow(row, 'ornamentDetails', 'Ornament Details')),
+          engraving_allowed: (getRow(row, 'engraving', 'Engraving') || 'false').toLowerCase() === 'true',
+          gift: (getRow(row, 'gift', 'Gift') || 'false').toLowerCase() === 'true',
+          productDetailsConfiguration: {
+            product_details: getRow(row, 'product_details', 'Product Details'),
+            average_width: getRow(row, 'average_width', 'Average Width', 'average_width_mm', 'Average Width (mm)') || '',
+            rhodium_plate: getRow(row, 'rhodium_plate', 'Rhodium Plate') || 'Yes',
+          },
           variants: variants,
-          status: (row['status'] || row['Status'] || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
-          images: [], // Images ignored as per requirement
+          status: (getRow(row, 'status', 'Status') || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+          images: [],
           videos: [],
           metal_images: metalImages,
-          engraving_allowed: (row['engraving'] || row['Engraving'] || 'false').toLowerCase() === 'true',
-          gift: (row['gift'] || row['Gift'] || 'false').toLowerCase() === 'true',
-          gender: (row['gender'] || row['Gender'] || 'Male').toLowerCase() === 'male' ? 'Male' : 'Female',
-          productSpecials: row['product_specials'] || row['Product Specials'] || '',
-          collections: row['collections'] || row['Collections'] || '',
-          stone: (row['stone'] || row['Stone'] || '').split(',').map(s => s.trim()).filter(s => s),
-          design_styles: (row['design_styles'] || row['Design Styles'] || '').split(',').map(s => s.trim()).filter(s => s),
-          settingConfigurations: row['settingConfigurations'] || row['Setting Configurations'] || null,
-          shankConfigurations: row['shankConfigurations'] || row['Shank Configurations'] || null,
-          bandProfileShapes: row['bandProfileShapes'] || row['Band Profile Shapes'] || null,
-          bandWidthCategories: row['bandWidthCategories'] || row['Band Width Categories'] || null,
-          bandFits: row['bandFits'] || row['Band Fits'] || null,
-          shankTreatments: (row['shankTreatments'] || row['Shank Treatments'] || '').split(',').map(id => id.trim()).filter(id => id),
-          styles: (row['styles'] || row['Styles'] || '').split(',').map(id => id.trim()).filter(id => id),
-          settingFeatures: (row['settingFeatures'] || row['Setting Features'] || '').split(',').map(id => id.trim()).filter(id => id),
-          motifThemes: (row['motifThemes'] || row['Motif Themes'] || '').split(',').map(id => id.trim()).filter(id => id),
-          ornamentDetails: (row['ornamentDetails'] || row['Ornament Details'] || '').split(',').map(id => id.trim()).filter(id => id),
-          productDetailsConfiguration: {
-            product_details: row['product_details'] || row['Product Details'] || '',
-            average_width: row['average_width'] || row['Average Width'] || row['average_width_mm'] || row['Average Width (mm)'] || '',
-            rhodium_plate: row['rhodium_plate'] || row['Rhodium Plate'] || 'Yes',
-          },
         };
 
-        // Parse Center Stone Details Configuration
+        // 34. Center Stone Details Configuration (multiple sub-fields)
         let centerStoneDetailsConfiguration = [];
-        const centerStoneConfigStr = row['centerStoneDetailsConfiguration'] || row['Center Stone Details Configuration'] || '';
-        if (centerStoneConfigStr.trim()) {
+        const centerStoneConfigStr = getRow(row, 'centerStoneDetailsConfiguration', 'Center Stone Details Configuration');
+        if (centerStoneConfigStr) {
           try {
             const parsed = JSON.parse(centerStoneConfigStr);
             if (Array.isArray(parsed)) {
@@ -4017,137 +4067,119 @@ module.exports.importRingProducts = async (req, res, next) => {
               centerStoneDetailsConfiguration = [parsed];
             }
           } catch (e) {
-            // If JSON parsing fails, try to build from individual CSV columns
-            const centerStone = (row['center_stone'] || row['Center Stone'] || row['center_stone_type'] || row['Center Stone Type'] || '').trim();
+            const centerStone = getRow(row, 'center_stone', 'Center Stone', 'center_stone_type', 'Center Stone Type');
             if (centerStone) {
-              const centerStoneConfig = {
+              centerStoneDetailsConfiguration.push({
                 stone: centerStone,
-                diamond_origin: row['center_stone_diamond_origin'] || row['Center Stone Diamond Origin'] || '',
-                diamond_shapes: (row['center_stone_diamond_shapes'] || row['Center Stone Diamond Shapes'] || '').split(',').map(s => s.trim()).filter(s => s),
-                min_diamond_weight: row['center_stone_min_diamond_weight'] || row['Center Stone Min Diamond Weight'] || '',
-                quantity: row['center_stone_quantity'] || row['Center Stone Quantity'] || '',
-                average_color: row['center_stone_average_color'] || row['Center Stone Average Color'] || '',
-                average_clarity: row['center_stone_average_clarity'] || row['Center Stone Average Clarity'] || '',
-                holding_methods: (row['center_stone_holding_methods'] || row['Center Stone Holding Methods'] || '').split(',').map(id => id.trim()).filter(id => id),
-                certified: row['center_stone_certified'] || row['Center Stone Certified'] || row['center_stone_igi_gia_certified'] || row['Center Stone IGI/GIA Certified'] || 'No',
-                color: row['center_stone_color'] || row['Center Stone Color'] || '',
-              };
-              centerStoneDetailsConfiguration.push(centerStoneConfig);
+                diamond_origin: getRow(row, 'center_stone_diamond_origin', 'Center Stone Diamond Origin'),
+                diamond_shapes: (getRow(row, 'center_stone_diamond_shapes', 'Center Stone Diamond Shapes') || '').split(',').map(s => s.trim()).filter(s => s),
+                min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight', 'Center Stone Min Diamond Weight'),
+                quantity: getRow(row, 'center_stone_quantity', 'Center Stone Quantity'),
+                average_color: getRow(row, 'center_stone_average_color', 'Center Stone Average Color'),
+                average_clarity: getRow(row, 'center_stone_average_clarity', 'Center Stone Average Clarity'),
+                holding_methods: toObjectIdArray(getRow(row, 'center_stone_holding_methods', 'Center Stone Holding Methods')),
+                certified: getRow(row, 'center_stone_certified', 'Center Stone Certified', 'center_stone_igi_gia_certified') || 'No',
+                color: getRow(row, 'center_stone_color', 'Center Stone Color'),
+              });
             }
           }
         } else {
-          // Try to build from individual CSV columns if JSON not provided
-          const centerStone = (row['center_stone'] || row['Center Stone'] || row['center_stone_type'] || row['Center Stone Type'] || '').trim();
+          const centerStone = getRow(row, 'center_stone', 'Center Stone', 'center_stone_type', 'Center Stone Type');
           if (centerStone) {
-            const centerStoneConfig = {
+            centerStoneDetailsConfiguration.push({
               stone: centerStone,
-              diamond_origin: row['center_stone_diamond_origin'] || row['Center Stone Diamond Origin'] || '',
-              diamond_shapes: (row['center_stone_diamond_shapes'] || row['Center Stone Diamond Shapes'] || '').split(',').map(s => s.trim()).filter(s => s),
-              min_diamond_weight: row['center_stone_min_diamond_weight'] || row['Center Stone Min Diamond Weight'] || '',
-              quantity: row['center_stone_quantity'] || row['Center Stone Quantity'] || '',
-              average_color: row['center_stone_average_color'] || row['Center Stone Average Color'] || '',
-              average_clarity: row['center_stone_average_clarity'] || row['Center Stone Average Clarity'] || '',
-              holding_methods: (row['center_stone_holding_methods'] || row['Center Stone Holding Methods'] || '').split(',').map(id => id.trim()).filter(id => id),
-              certified: row['center_stone_certified'] || row['Center Stone Certified'] || row['center_stone_igi_gia_certified'] || row['Center Stone IGI/GIA Certified'] || 'No',
-              color: row['center_stone_color'] || row['Center Stone Color'] || '',
-            };
-            centerStoneDetailsConfiguration.push(centerStoneConfig);
+              diamond_origin: getRow(row, 'center_stone_diamond_origin', 'Center Stone Diamond Origin'),
+              diamond_shapes: (getRow(row, 'center_stone_diamond_shapes', 'Center Stone Diamond Shapes') || '').split(',').map(s => s.trim()).filter(s => s),
+              min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight', 'Center Stone Min Diamond Weight'),
+              quantity: getRow(row, 'center_stone_quantity', 'Center Stone Quantity'),
+              average_color: getRow(row, 'center_stone_average_color', 'Center Stone Average Color'),
+              average_clarity: getRow(row, 'center_stone_average_clarity', 'Center Stone Average Clarity'),
+              holding_methods: toObjectIdArray(getRow(row, 'center_stone_holding_methods', 'Center Stone Holding Methods')),
+              certified: getRow(row, 'center_stone_certified', 'Center Stone Certified', 'center_stone_igi_gia_certified') || 'No',
+              color: getRow(row, 'center_stone_color', 'Center Stone Color'),
+            });
           }
         }
 
-        // Parse Side Stone Details Configuration
+        // 35. Side Stone Details Configuration (multiple sub-fields)
         let sideStoneDetailsConfiguration = [];
-        const sideStoneConfigStr = row['sideStoneDetailsConfiguration'] || row['Side Stone Details Configuration'] || '';
-        if (sideStoneConfigStr.trim()) {
+        const sideStoneConfigStr = getRow(row, 'sideStoneDetailsConfiguration', 'Side Stone Details Configuration');
+        if (sideStoneConfigStr) {
           try {
             const parsed = JSON.parse(sideStoneConfigStr);
-            if (Array.isArray(parsed)) {
-              sideStoneDetailsConfiguration = parsed;
-            } else if (typeof parsed === 'object') {
-              sideStoneDetailsConfiguration = [parsed];
-            }
+            if (Array.isArray(parsed)) sideStoneDetailsConfiguration = parsed;
+            else if (typeof parsed === 'object') sideStoneDetailsConfiguration = [parsed];
           } catch (e) {
-            // If JSON parsing fails, try to build from individual CSV columns
-            const sideStone = (row['side_stone'] || row['Side Stone'] || row['side_stone_type'] || row['Side Stone Type'] || '').trim();
+            const sideStone = getRow(row, 'side_stone', 'Side Stone', 'side_stone_type', 'Side Stone Type');
             if (sideStone) {
-              const sideStoneConfig = {
+              sideStoneDetailsConfiguration.push({
                 stone: sideStone,
-                diamond_origin: row['side_stone_diamond_origin'] || row['Side Stone Diamond Origin'] || '',
-                diamond_shapes: (row['side_stone_diamond_shapes'] || row['Side Stone Diamond Shapes'] || '').split(',').map(s => s.trim()).filter(s => s),
-                min_diamond_weight: row['side_stone_min_diamond_weight'] || row['Side Stone Min Diamond Weight'] || '',
-                quantity: row['side_stone_quantity'] || row['Side Stone Quantity'] || '',
-                average_color: row['side_stone_average_color'] || row['Side Stone Average Color'] || '',
-                average_clarity: row['side_stone_average_clarity'] || row['Side Stone Average Clarity'] || '',
-                holding_methods: (row['side_stone_holding_methods'] || row['Side Stone Holding Methods'] || '').split(',').map(id => id.trim()).filter(id => id),
-              };
-              sideStoneDetailsConfiguration.push(sideStoneConfig);
+                diamond_origin: getRow(row, 'side_stone_diamond_origin', 'Side Stone Diamond Origin'),
+                diamond_shapes: (getRow(row, 'side_stone_diamond_shapes', 'Side Stone Diamond Shapes') || '').split(',').map(s => s.trim()).filter(s => s),
+                min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight', 'Side Stone Min Diamond Weight'),
+                quantity: getRow(row, 'side_stone_quantity', 'Side Stone Quantity'),
+                average_color: getRow(row, 'side_stone_average_color', 'Side Stone Average Color'),
+                average_clarity: getRow(row, 'side_stone_average_clarity', 'Side Stone Average Clarity'),
+                holding_methods: toObjectIdArray(getRow(row, 'side_stone_holding_methods', 'Side Stone Holding Methods')),
+              });
             }
           }
         } else {
-          // Try to build from individual CSV columns if JSON not provided
-          const sideStone = (row['side_stone'] || row['Side Stone'] || row['side_stone_type'] || row['Side Stone Type'] || '').trim();
+          const sideStone = getRow(row, 'side_stone', 'Side Stone', 'side_stone_type', 'Side Stone Type');
           if (sideStone) {
-            const sideStoneConfig = {
+            sideStoneDetailsConfiguration.push({
               stone: sideStone,
-              diamond_origin: row['side_stone_diamond_origin'] || row['Side Stone Diamond Origin'] || '',
-              diamond_shapes: (row['side_stone_diamond_shapes'] || row['Side Stone Diamond Shapes'] || '').split(',').map(s => s.trim()).filter(s => s),
-              min_diamond_weight: row['side_stone_min_diamond_weight'] || row['Side Stone Min Diamond Weight'] || '',
-              quantity: row['side_stone_quantity'] || row['Side Stone Quantity'] || '',
-              average_color: row['side_stone_average_color'] || row['Side Stone Average Color'] || '',
-              average_clarity: row['side_stone_average_clarity'] || row['Side Stone Average Clarity'] || '',
-              holding_methods: (row['side_stone_holding_methods'] || row['Side Stone Holding Methods'] || '').split(',').map(id => id.trim()).filter(id => id),
-            };
-            sideStoneDetailsConfiguration.push(sideStoneConfig);
+              diamond_origin: getRow(row, 'side_stone_diamond_origin', 'Side Stone Diamond Origin'),
+              diamond_shapes: (getRow(row, 'side_stone_diamond_shapes', 'Side Stone Diamond Shapes') || '').split(',').map(s => s.trim()).filter(s => s),
+              min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight', 'Side Stone Min Diamond Weight'),
+              quantity: getRow(row, 'side_stone_quantity', 'Side Stone Quantity'),
+              average_color: getRow(row, 'side_stone_average_color', 'Side Stone Average Color'),
+              average_clarity: getRow(row, 'side_stone_average_clarity', 'Side Stone Average Clarity'),
+              holding_methods: toObjectIdArray(getRow(row, 'side_stone_holding_methods', 'Side Stone Holding Methods')),
+            });
           }
         }
 
-        // Parse Stone Details Form Configuration
+        // 36. Stone Details form (multiple sub-fields)
         let stoneDetailsFormConfiguration = [];
-        const stoneDetailsConfigStr = row['stoneDetailsFormConfiguration'] || row['Stone Details Form Configuration'] || '';
-        if (stoneDetailsConfigStr.trim()) {
+        const stoneDetailsConfigStr = getRow(row, 'stoneDetailsFormConfiguration', 'Stone Details Form Configuration');
+        if (stoneDetailsConfigStr) {
           try {
             const parsed = JSON.parse(stoneDetailsConfigStr);
-            if (Array.isArray(parsed)) {
-              stoneDetailsFormConfiguration = parsed;
-            } else if (typeof parsed === 'object') {
-              stoneDetailsFormConfiguration = [parsed];
-            }
+            if (Array.isArray(parsed)) stoneDetailsFormConfiguration = parsed;
+            else if (typeof parsed === 'object') stoneDetailsFormConfiguration = [parsed];
           } catch (e) {
-            // If JSON parsing fails, try to build from individual CSV columns
-            const stoneDetailsStone = (row['stone_details_stone'] || row['Stone Details Stone'] || row['stone_details_stone_type'] || row['Stone Details Stone Type'] || '').trim();
+            const stoneDetailsStone = getRow(row, 'stone_details_stone', 'Stone Details Stone', 'stone_details_stone_type', 'Stone Details Stone Type');
             if (stoneDetailsStone) {
-              const stoneDetailsConfig = {
+              stoneDetailsFormConfiguration.push({
                 stone: stoneDetailsStone,
-                certified: row['stone_details_certified'] || row['Stone Details Certified'] || row['stone_details_igi_gia_certified'] || row['Stone Details IGI/GIA Certified'] || 'No',
-                color: row['stone_details_color'] || row['Stone Details Color'] || '',
-                diamond_origin: row['stone_details_diamond_origin'] || row['Stone Details Diamond Origin'] || '',
-                diamond_shapes: (row['stone_details_diamond_shapes'] || row['Stone Details Diamond Shapes'] || '').split(',').map(s => s.trim()).filter(s => s),
-                min_diamond_weight: row['stone_details_min_diamond_weight'] || row['Stone Details Min Diamond Weight'] || '',
-                quantity: row['stone_details_quantity'] || row['Stone Details Quantity'] || '',
-                average_color: row['stone_details_average_color'] || row['Stone Details Average Color'] || '',
-                average_clarity: row['stone_details_average_clarity'] || row['Stone Details Average Clarity'] || '',
-                holding_methods: (row['stone_details_holding_methods'] || row['Stone Details Holding Methods'] || '').split(',').map(id => id.trim()).filter(id => id),
-              };
-              stoneDetailsFormConfiguration.push(stoneDetailsConfig);
+                certified: getRow(row, 'stone_details_certified', 'Stone Details Certified', 'stone_details_igi_gia_certified') || 'No',
+                color: getRow(row, 'stone_details_color', 'Stone Details Color'),
+                diamond_origin: getRow(row, 'stone_details_diamond_origin', 'Stone Details Diamond Origin'),
+                diamond_shapes: (getRow(row, 'stone_details_diamond_shapes', 'Stone Details Diamond Shapes') || '').split(',').map(s => s.trim()).filter(s => s),
+                min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight', 'Stone Details Min Diamond Weight'),
+                quantity: getRow(row, 'stone_details_quantity', 'Stone Details Quantity'),
+                average_color: getRow(row, 'stone_details_average_color', 'Stone Details Average Color'),
+                average_clarity: getRow(row, 'stone_details_average_clarity', 'Stone Details Average Clarity'),
+                holding_methods: toObjectIdArray(getRow(row, 'stone_details_holding_methods', 'Stone Details Holding Methods')),
+              });
             }
           }
         } else {
-          // Try to build from individual CSV columns if JSON not provided
-          const stoneDetailsStone = (row['stone_details_stone'] || row['Stone Details Stone'] || row['stone_details_stone_type'] || row['Stone Details Stone Type'] || '').trim();
+          const stoneDetailsStone = getRow(row, 'stone_details_stone', 'Stone Details Stone', 'stone_details_stone_type', 'Stone Details Stone Type');
           if (stoneDetailsStone) {
-            const stoneDetailsConfig = {
+            stoneDetailsFormConfiguration.push({
               stone: stoneDetailsStone,
-              certified: row['stone_details_certified'] || row['Stone Details Certified'] || row['stone_details_igi_gia_certified'] || row['Stone Details IGI/GIA Certified'] || 'No',
-              color: row['stone_details_color'] || row['Stone Details Color'] || '',
-              diamond_origin: row['stone_details_diamond_origin'] || row['Stone Details Diamond Origin'] || '',
-              diamond_shapes: (row['stone_details_diamond_shapes'] || row['Stone Details Diamond Shapes'] || '').split(',').map(s => s.trim()).filter(s => s),
-              min_diamond_weight: row['stone_details_min_diamond_weight'] || row['Stone Details Min Diamond Weight'] || '',
-              quantity: row['stone_details_quantity'] || row['Stone Details Quantity'] || '',
-              average_color: row['stone_details_average_color'] || row['Stone Details Average Color'] || '',
-              average_clarity: row['stone_details_average_clarity'] || row['Stone Details Average Clarity'] || '',
-              holding_methods: (row['stone_details_holding_methods'] || row['Stone Details Holding Methods'] || '').split(',').map(id => id.trim()).filter(id => id),
-            };
-            stoneDetailsFormConfiguration.push(stoneDetailsConfig);
+              certified: getRow(row, 'stone_details_certified', 'Stone Details Certified', 'stone_details_igi_gia_certified') || 'No',
+              color: getRow(row, 'stone_details_color', 'Stone Details Color'),
+              diamond_origin: getRow(row, 'stone_details_diamond_origin', 'Stone Details Diamond Origin'),
+              diamond_shapes: (getRow(row, 'stone_details_diamond_shapes', 'Stone Details Diamond Shapes') || '').split(',').map(s => s.trim()).filter(s => s),
+              min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight', 'Stone Details Min Diamond Weight'),
+              quantity: getRow(row, 'stone_details_quantity', 'Stone Details Quantity'),
+              average_color: getRow(row, 'stone_details_average_color', 'Stone Details Average Color'),
+              average_clarity: getRow(row, 'stone_details_average_clarity', 'Stone Details Average Clarity'),
+              holding_methods: toObjectIdArray(getRow(row, 'stone_details_holding_methods', 'Stone Details Holding Methods')),
+            });
           }
         }
 
@@ -4157,9 +4189,16 @@ module.exports.importRingProducts = async (req, res, next) => {
         productData.stoneDetailsFormConfiguration = stoneDetailsFormConfiguration;
 
         // Validate required ObjectId fields
-        if (!productData.settingConfigurations || !productData.shankConfigurations || 
-            !productData.bandProfileShapes || !productData.bandWidthCategories || !productData.bandFits) {
-          errors.push(`Row ${rowNumber}: Missing required configuration fields (settingConfigurations, shankConfigurations, bandProfileShapes, bandWidthCategories, bandFits)`);
+        if (!productData.settingConfigurations || !productData.bandWidthCategories || !productData.bandFits) {
+          errors.push(`Row ${rowNumber}: Missing required configuration fields (settingConfigurations, bandWidthCategories, bandFits)`);
+          continue;
+        }
+        if (!Array.isArray(productData.shankConfigurations) || productData.shankConfigurations.length === 0) {
+          errors.push(`Row ${rowNumber}: Missing or empty shankConfigurations (comma-separated IDs)`);
+          continue;
+        }
+        if (!Array.isArray(productData.bandProfileShapes) || productData.bandProfileShapes.length === 0) {
+          errors.push(`Row ${rowNumber}: Missing or empty bandProfileShapes (comma-separated IDs)`);
           continue;
         }
 

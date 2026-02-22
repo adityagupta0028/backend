@@ -179,6 +179,21 @@ const productSchema = new mongoose.Schema({
       message: 'Ring sizes must be between 3 and 10'
     }
   },
+  number_of_stone: {
+    type: [Number],
+    default: [],
+    validate: {
+      validator: function(v) {
+        if (!Array.isArray(v)) return true;
+        return v.every(n => Number.isInteger(n) && n >= 0);
+      },
+      message: 'number_of_stone must be an array of non-negative integers (e.g. 1, 2)'
+    }
+  },
+  diamond_grading: {
+    type: String,
+    default: ''
+  },
   necklace_size: {
     type: [String],
     default: []
@@ -492,7 +507,7 @@ const productSchema = new mongoose.Schema({
     ref: 'setting_configurations'
   },
   shankConfigurations:{
-    type: mongoose.Schema.Types.ObjectId,
+    type: [mongoose.Schema.Types.ObjectId],
     ref: 'shank_configurations',
   },
   holdingMethods:{
@@ -500,7 +515,7 @@ const productSchema = new mongoose.Schema({
     ref: 'holding_methods'
   },
   bandProfileShapes:{
-    type: mongoose.Schema.Types.ObjectId,
+    type: [mongoose.Schema.Types.ObjectId],
     ref: 'band_profile_shapes'
   },
   bandWidthCategories:{

@@ -208,14 +208,21 @@ module.exports.createProduct = Joi.object({
   ).optional(),
   // Radio button fields (single ObjectId)
   settingConfigurations: Joi.objectId().required(),
-  shankConfigurations: Joi.objectId().required(),
   holdingMethods: Joi.objectId().optional(),
   styleSubCategory: Joi.objectId().optional().allow(''),
   flexibilityType: Joi.objectId().optional().allow(''),
   chainLinkypes: Joi.objectId().optional().allow(''),
   closureTypes: Joi.objectId().optional().allow(''),
-  bandProfileShapes: Joi.objectId().required(),
   bandWidthCategories: Joi.objectId().required(),
+  // Multi-select (array of ObjectIds)
+  shankConfigurations: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
+  bandProfileShapes: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).required(),
   bandFits: Joi.objectId().required(),
   // Multi-select dropdown fields (array of ObjectIds)
   shankTreatments: Joi.alternatives().try(
@@ -432,15 +439,22 @@ module.exports.updateProduct = Joi.object({
   ).optional(),
   // Radio button fields (single ObjectId)
   settingConfigurations: Joi.objectId().optional(),
-  shankConfigurations: Joi.objectId().optional(),
   holdingMethods: Joi.objectId().optional(),
   styleSubCategory: Joi.objectId().optional().allow(''),
   flexibilityType: Joi.objectId().optional().allow(''),
   chainLinkypes: Joi.objectId().optional().allow(''),
   closureTypes: Joi.objectId().optional().allow(''),
-  bandProfileShapes: Joi.objectId().optional(),
   bandWidthCategories: Joi.objectId().optional(),
   bandFits: Joi.objectId().optional(),
+  // Multi-select (array of ObjectIds)
+  shankConfigurations: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).optional(),
+  bandProfileShapes: Joi.alternatives().try(
+    Joi.array().items(Joi.objectId()).min(1),
+    Joi.objectId()
+  ).optional(),
   // Multi-select dropdown fields (array of ObjectIds)
   shankTreatments: Joi.alternatives().try(
     Joi.array().items(Joi.objectId()).min(1),
