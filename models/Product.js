@@ -174,9 +174,14 @@ const productSchema = new mongoose.Schema({
     validate: {
       validator: function(v) {
         if (!Array.isArray(v)) return false;
+        const productType = this.product_type;
+        // Bracelets/Necklace use Length (e.g. 8, 12, 16, 18, 20); Rings/Earrings use ring size 3–10
+        if (productType === 'Bracelets' || productType === 'Necklace') {
+          return v.every(size => size >= 3 && size <= 30);
+        }
         return v.every(size => size >= 3 && size <= 10);
       },
-      message: 'Ring sizes must be between 3 and 10'
+      message: 'Ring sizes must be between 3 and 10 (Rings/Earrings), or Length between 3 and 30 (Bracelets/Necklace)'
     }
   },
   number_of_stone: {
@@ -310,11 +315,13 @@ const productSchema = new mongoose.Schema({
     type: {
       product_details: String,
       average_width: String,
+      average_length: String,
       rhodium_plate: String
     },
     default: {
       product_details: '',
       average_width: '',
+      average_length: '',
       rhodium_plate: 'Yes'
     }
   },
@@ -553,6 +560,10 @@ const productSchema = new mongoose.Schema({
   ProductSpecials:{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'product_specials',
+  },
+  sizeScale:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'size_scale',
   },
   CollectionsList:{
     type: mongoose.Schema.Types.ObjectId,

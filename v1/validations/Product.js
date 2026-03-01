@@ -98,10 +98,12 @@ module.exports.createProduct = Joi.object({
   ).optional().allow(null, ''),
   product_details: Joi.string().optional().allow(''),
   average_width: Joi.string().optional().allow(''),
+  average_length: Joi.string().optional().allow(''),
   rhodium_plate: Joi.string().valid('Yes', 'No').optional().allow(''),
   productDetailsConfiguration: Joi.object({
     product_details: Joi.string().optional().allow('').default(''),
     average_width: Joi.string().optional().allow('').default(''),
+    average_length: Joi.string().optional().allow('').default(''),
     rhodium_plate: Joi.string().valid('Yes', 'No').optional().default('Yes')
   }).optional(),
   centerStoneDetailsConfiguration: Joi.array().items(
@@ -348,10 +350,12 @@ module.exports.updateProduct = Joi.object({
   ).optional().allow(null, ''),
   product_details: Joi.string().optional().allow(''),
   average_width: Joi.string().optional().allow(''),
+  average_length: Joi.string().optional().allow(''),
   rhodium_plate: Joi.string().valid('Yes', 'No').optional().allow(''),
   productDetailsConfiguration: Joi.object({
     product_details: Joi.string().optional().allow('').default(''),
     average_width: Joi.string().optional().allow('').default(''),
+    average_length: Joi.string().optional().allow('').default(''),
     rhodium_plate: Joi.string().valid('Yes', 'No').optional().default('Yes')
   }).optional(),
   centerStoneDetailsConfiguration: Joi.array().items(

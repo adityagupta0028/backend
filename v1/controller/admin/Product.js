@@ -727,6 +727,13 @@ module.exports.createBraceletProduct = async (req, res, next) => {
   }
 
   try {
+    // Strip finishDetails from req.body immediately so it never reaches create() or schema (avoids "Schema does not contain path finishDetails")
+    let braceletFinishDetailsIds = null;
+    if (req.body.finishDetails != null && req.body.finishDetails !== '') {
+      braceletFinishDetailsIds = Array.isArray(req.body.finishDetails) ? req.body.finishDetails : [req.body.finishDetails];
+      delete req.body.finishDetails;
+    }
+
     // Completely remove shankTreatments for bracelets (not needed)
     delete req.body.shankTreatments;
     
@@ -764,6 +771,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
     
 
     const bodyToValidate = { ...req.body };
+    delete bodyToValidate.finishDetails;  // Joi schema has no finishDetails path - strip so fork() doesn't throw "Schema does not contain path finishDetails"
     
     // Completely remove shankTreatments from req.body for bracelets (not needed)
     delete req.body.shankTreatments;
@@ -778,7 +786,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
     });
     
     // Remove optional fields from validation if not provided
-    const optionalFields = ['bandWidthCategories', 'settingConfigurations', 'shankConfigurations', 'ornamentDetails', 'bandFits'];
+    const optionalFields = ['bandWidthCategories', 'settingConfigurations', 'shankConfigurations', 'ornamentDetails', 'bandFits', 'finishDetails'];
     optionalFields.forEach(field => {
       if (!bodyToValidate[field] || bodyToValidate[field] === '' || 
           (Array.isArray(bodyToValidate[field]) && bodyToValidate[field].length === 0)) {
@@ -787,7 +795,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
     });
     
     // Create a modified validation schema with optional fields for bracelets
-    // For bandFits, also change it to accept array (since it's multi-select for bracelets)
+    // Do NOT add 'finishDetails' to fork() - createProduct schema has no such path; Joi would throw "Schema does not contain path finishDetails"
     const baseValidation = Validation.Product.createProduct.fork(
       ['bandWidthCategories', 'settingConfigurations', 'shankConfigurations', 'ornamentDetails', 'bandFits', 'shankTreatments'], 
       (schema) => schema.optional()
@@ -1105,7 +1113,32 @@ module.exports.createBraceletProduct = async (req, res, next) => {
       return Array.isArray(value) ? value : [value];
     };
 
-    // shankTreatments is completely removed for bracelets - no validation needed
+    // Validate finishDetails IDs (already stripped from req.body above) - optional
+    if (braceletFinishDetailsIds && braceletFinishDetailsIds.length > 0) {
+      braceletFinishDetailsIds = normalizeObjectIdArray(braceletFinishDetailsIds);
+      const finishDetails = await Model.FinishDetail.find({
+        _id: { $in: braceletFinishDetailsIds },
+        isDeleted: { $ne: true }
+      });
+      if (finishDetails.length !== braceletFinishDetailsIds.length) {
+        throw new Error("One or more finish details not found");
+      }
+    }
+
+    // Validate sizeScale for bracelets - optional
+    if (req.body.sizeScale) {
+      const sizeScaleId = Array.isArray(req.body.sizeScale) ? req.body.sizeScale[0] : req.body.sizeScale;
+      if (sizeScaleId) {
+        const sizeScaleDoc = await Model.SizeScale.findOne({
+          _id: sizeScaleId,
+          isDeleted: { $ne: true }
+        });
+        if (!sizeScaleDoc) {
+          throw new Error("Size scale not found");
+        }
+        req.body.sizeScale = sizeScaleId;
+      }
+    }
 
     if (req.body.styles) {
       req.body.styles = normalizeObjectIdArray(req.body.styles);
@@ -1321,6 +1354,7 @@ module.exports.createBraceletProduct = async (req, res, next) => {
       req.body.productDetailsConfiguration = {
         product_details: req.body.product_details || '',
         average_width: req.body.average_width || '',
+        average_length: req.body.average_length || '',
         rhodium_plate: req.body.rhodium_plate || 'Yes',
         center_stone_details: req.body.center_stone_details || '',
         side_stone_details: req.body.side_stone_details || '',
@@ -1484,7 +1518,22 @@ module.exports.createBraceletProduct = async (req, res, next) => {
       });
     }
 
-    let product = await Model.Product.create(req.body);
+    // Create without finishDetails so schema never sees this path (avoids "Schema does not contain path finishDetails")
+    const bodyForCreate = { ...req.body };
+    delete bodyForCreate.finishDetails;
+    let product = await Model.Product.create(bodyForCreate);
+
+    // Write finishDetails via raw MongoDB - convert string IDs to ObjectIds
+    if (braceletFinishDetailsIds && braceletFinishDetailsIds.length > 0) {
+      const finishDetailsObjectIds = braceletFinishDetailsIds.map((id) =>
+        id instanceof mongoose.Types.ObjectId ? id : new mongoose.Types.ObjectId(id)
+      );
+      await Model.Product.collection.updateOne(
+        { _id: product._id },
+        { $set: { finishDetails: finishDetailsObjectIds } }
+      );
+    }
+
     await product.populate([
       'categoryId',
       'subCategoryId',
@@ -1496,13 +1545,17 @@ module.exports.createBraceletProduct = async (req, res, next) => {
       'bandWidthCategories',
       'bandFits',
       'shankTreatments',
+      'sizeScale',
       'styles',
       'settingFeatures',
       'motifThemes',
       'ornamentDetails'
     ]);
 
-    return res.success(constants.MESSAGES.DATA_UPLOADED, product);
+    // Return plain object so response serialization never touches schema path finishDetails
+    const responseProduct = product.toObject ? product.toObject() : { ...product._doc };
+    responseProduct.finishDetails = braceletFinishDetailsIds || [];
+    return res.success(constants.MESSAGES.DATA_UPLOADED, responseProduct);
   } catch (error) {
     next(error);
   }
@@ -2147,6 +2200,7 @@ console.log("req.body for necklace", req.body);
       req.body.productDetailsConfiguration = {
         product_details: req.body.product_details || '',
         average_width: req.body.average_width || '',
+        average_length: req.body.average_length || '',
         rhodium_plate: req.body.rhodium_plate || 'Yes',
         center_stone_details: req.body.center_stone_details || '',
         side_stone_details: req.body.side_stone_details || '',
@@ -2970,6 +3024,7 @@ console.log("req.body for earrings", req.body);
       req.body.productDetailsConfiguration = {
         product_details: req.body.product_details || '',
         average_width: req.body.average_width || '',
+        average_length: req.body.average_length || '',
         rhodium_plate: req.body.rhodium_plate || 'Yes',
         center_stone_details: req.body.center_stone_details || '',
         side_stone_details: req.body.side_stone_details || '',
@@ -3187,12 +3242,18 @@ module.exports.getProducts = async (req, res, next) => {
         : req.query.subSubCategoryId;
     }
 
-    // Filter by status
-    if (req.query.status) {
-      query.status = req.query.status;
-    } else {
-      query.status = "Active"; // Default to active products
+    // Filter by status (only when provided; match case-insensitively so "Active"/"active" both work)
+    if (req.query.status && req.query.status !== 'all' && req.query.status !== 'All') {
+      const s = String(req.query.status).toLowerCase();
+      if (s === 'active') {
+        query.status = { $in: ['Active', 'active'] };
+      } else if (s === 'inactive') {
+        query.status = { $in: ['Inactive', 'inactive'] };
+      } else {
+        query.status = req.query.status;
+      }
     }
+    // When no status or "All": do not filter by status, so admin sees all products
 
     // Filter by product type
     if (req.query.product_type) {
@@ -4329,6 +4390,908 @@ module.exports.importRingProducts = async (req, res, next) => {
   }
 }
 
+// Import Bracelet Products from CSV
+module.exports.importBraceletProducts = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => {
+          results.push(row);
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    const createdProducts = [];
+    const skippedProducts = [];
+
+    const getRow = (row, ...keys) => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+    const toObjectIdArray = (str) => {
+      if (!str || !String(str).trim()) return [];
+      return String(str).split(',').map(id => id.trim()).filter(id => id)
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id);
+    };
+    const toHoldingMethodsIds = (str) => {
+      const arr = toObjectIdArray(str || '');
+      return arr.filter(id => id instanceof mongoose.Types.ObjectId);
+    };
+    const toObjectId = (str) => {
+      if (!str || !String(str).trim()) return null;
+      const s = String(str).trim();
+      return mongoose.Types.ObjectId.isValid(s) ? new mongoose.Types.ObjectId(s) : null;
+    };
+    const normalizeCertified = (val) => (/^yes$/i.test(String(val || '').trim()) ? 'Yes' : 'No');
+
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2;
+
+      try {
+        const productId = getRow(row, 'product_id', 'Product ID');
+        const productName = getRow(row, 'product_name', 'Product Name');
+        const description = getRow(row, 'description', 'Description');
+        const categoryIdRaw = getRow(row, 'categoryId', 'Category ID', 'Category');
+        const categoryId = categoryIdRaw && mongoose.Types.ObjectId.isValid(categoryIdRaw) ? new mongoose.Types.ObjectId(categoryIdRaw) : categoryIdRaw;
+        const subCategoryIds = toObjectIdArray(getRow(row, 'subCategoryId', 'Sub Category ID', 'Sub Category'));
+        const subSubCategoryIds = toObjectIdArray(getRow(row, 'subSubCategoryId', 'Sub SubCategory ID', 'Sub SubCategory'));
+
+        const diamondOrigin = (getRow(row, 'diamond_origin', 'Diamond Origin', 'Stone Type') || '').toLowerCase();
+        if (!diamondOrigin || (diamondOrigin !== 'natural' && diamondOrigin !== 'lab grown' && diamondOrigin !== 'lab-grown')) {
+          errors.push(`Row ${rowNumber}: Invalid or missing diamond_origin. Must be 'natural' or 'lab grown'`);
+          continue;
+        }
+        const normalizedDiamondOrigin = diamondOrigin === 'lab-grown' || diamondOrigin === 'lab grown' ? 'Lab Grown' : 'Natural';
+
+        const caratWeightsStr = getRow(row, 'carat_weight', 'Carat Weight');
+        const caratWeights = caratWeightsStr.split(',').map(w => w.trim()).filter(w => w);
+        if (caratWeights.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one carat_weight is required`);
+          continue;
+        }
+
+        const metalColorsStr = getRow(row, 'metal_color', 'Metal Color');
+        const metalColors = metalColorsStr.split(',').map(c => c.trim()).filter(c => c);
+        if (metalColors.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one metal_color is required`);
+          continue;
+        }
+
+        const metalKaratsStr = getRow(row, 'karat', 'Karat');
+        const metalKarats = metalKaratsStr.split(',').map(k => k.trim()).filter(k => k);
+        const hasNonPlatinum = metalColors.some(c => c.toLowerCase() !== 'platinum');
+        if (hasNonPlatinum && metalKarats.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one karat is required when metal_color is not Platinum`);
+          continue;
+        }
+
+        const shapesStr = getRow(row, 'shape', 'Shape');
+        const shapes = shapesStr.split(',').map(s => s.trim()).filter(s => s);
+        if (shapes.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one shape is required`);
+          continue;
+        }
+
+        const diamondQualitiesStr = getRow(row, 'diamond_quality', 'Diamond Quality');
+        const diamondQualities = diamondQualitiesStr.split(',').map(q => q.trim()).filter(q => q);
+        if (diamondQualities.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one diamond_quality is required`);
+          continue;
+        }
+
+        const metalTypes = [];
+        metalColors.forEach(color => {
+          if (color.toLowerCase() === 'platinum') {
+            metalTypes.push('Platinum');
+          } else {
+            metalKarats.forEach(karat => {
+              metalTypes.push(`${karat} ${color}`);
+            });
+          }
+        });
+
+        const metalImages = [];
+        const requiredViewAngles = ['Angled view', 'Top view', 'Side view'];
+        metalColors.forEach(metalColor => {
+          shapes.forEach(shape => {
+            requiredViewAngles.forEach(viewAngle => {
+              metalImages.push({
+                metal_type: metalColor,
+                shape: shape,
+                view_angle: viewAngle,
+                image: `/uploads/placeholder_${metalColor.replace(/\s+/g, '_')}_${shape}_${viewAngle.replace(/\s+/g, '_')}.jpg`
+              });
+            });
+          });
+        });
+
+        const variants = [];
+        caratWeights.forEach(carat => {
+          metalTypes.forEach(metalType => {
+            diamondQualities.forEach(quality => {
+              shapes.forEach(shape => {
+                const price = parseFloat(getRow(row, 'price', 'Price')) || 0;
+                const discountedPrice = parseFloat(getRow(row, 'discounted_price', 'Discounted Price')) || 0;
+                variants.push({
+                  diamond_type: normalizedDiamondOrigin,
+                  carat_weight: `${carat}ct`,
+                  metal_type: metalType,
+                  diamond_quality: quality,
+                  shape: shape,
+                  price: price,
+                  discounted_price: discountedPrice,
+                });
+              });
+            });
+          });
+        });
+
+        if (variants.length === 0) {
+          errors.push(`Row ${rowNumber}: No variants generated`);
+          continue;
+        }
+
+        let finalProductId;
+        if (productId.trim()) {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          finalProductId = `${productId.trim()}${random6Digit}`;
+        } else {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          finalProductId = `BRAC-${random6Digit}`;
+        }
+
+        let existingProduct = await Model.Product.findOne({
+          product_id: finalProductId,
+          isDeleted: false
+        });
+        let retryCount = 0;
+        while (existingProduct && retryCount < 10) {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          if (productId.trim()) {
+            finalProductId = `${productId.trim()}${random6Digit}`;
+          } else {
+            finalProductId = `BRAC-${random6Digit}`;
+          }
+          existingProduct = await Model.Product.findOne({
+            product_id: finalProductId,
+            isDeleted: false
+          });
+          retryCount++;
+        }
+        if (existingProduct) {
+          skippedProducts.push({ row: rowNumber, productId: finalProductId, reason: 'Product ID already exists after retries' });
+          continue;
+        }
+
+        // Length -> ring_size for bracelet (sizes e.g. 8, 12, 14, 16, 18, 20, 22, 24, 28)
+        const lengthStr = getRow(row, 'Length', 'length');
+        const braceletLengths = lengthStr ? lengthStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n >= 3 && n <= 30) : [];
+
+        const productData = {
+          product_id: finalProductId,
+          product_name: productName.trim() || `Product ${finalProductId}`,
+          description: description.trim() || '',
+          product_type: 'Bracelets',
+          categoryId: [categoryId],
+          subCategoryId: subCategoryIds,
+          subSubCategoryId: subSubCategoryIds,
+          metal_type: metalTypes,
+          shape: shapes,
+          karat: metalKarats,
+          design_styles: (getRow(row, 'design_styles', 'Design Styles') || '').split(',').map(s => s.trim()).filter(s => s),
+          diamond_origin: [normalizedDiamondOrigin],
+          diamond_grading: getRow(row, 'diamond_grading', 'Diamond Grading'),
+          diamond_quality: diamondQualities,
+          carat_weight: caratWeights.map(w => parseFloat(w)),
+          number_of_stone: (() => {
+            const raw = getRow(row, 'number_of_stone', 'Number of Stone', 'number_of_stones');
+            if (!raw) return [];
+            return raw.split(',').map(s => { const n = parseInt(s.trim(), 10); return Number.isInteger(n) && n >= 0 ? n : null; }).filter(n => n != null);
+          })(),
+          stone: (getRow(row, 'stone', 'Stone') || '').split(',').map(s => s.trim()).filter(s => s),
+          gender: (getRow(row, 'gender', 'Gender') || 'Male').toLowerCase() === 'male' ? 'Male' : 'Female',
+          productSpecials: getRow(row, 'product_specials', 'Product Specials'),
+          collections: getRow(row, 'collections', 'Collections'),
+          ring_size: braceletLengths,
+          sizeScale: toObjectId(getRow(row, 'sizeScale', 'Size Scale')),
+          flexibilityType: toObjectId(getRow(row, 'flexibilityType', 'Flexibility Type')),
+          chainLinkypes: toObjectId(getRow(row, 'chainLinkType', 'Chain Link Type')),
+          closureTypes: toObjectId(getRow(row, 'closureType', 'Closure Type')),
+          stoneSettings: toObjectIdArray(getRow(row, 'stoneSetting', 'Stone Setting')),
+          placementFits: toObjectId(getRow(row, 'placementFit', 'Placement Fit')),
+          styles: toObjectIdArray(getRow(row, 'styles', 'Styles')),
+          settingFeatures: toObjectIdArray(getRow(row, 'settingFeatures', 'Setting Features')),
+          motifThemes: toObjectIdArray(getRow(row, 'motifThemes', 'Motif Themes')),
+          engraving_allowed: (getRow(row, 'engraving', 'Engraving') || 'false').toLowerCase() === 'true',
+          gift: (getRow(row, 'gift', 'Gift') || 'false').toLowerCase() === 'true',
+          productDetailsConfiguration: {
+            product_details: getRow(row, 'product_details', 'Product Details'),
+            average_width: getRow(row, 'average_width', 'Average Width', 'average_width_mm') || '',
+            average_length: lengthStr || '',
+            rhodium_plate: getRow(row, 'rhodium_plate', 'Rhodium Plate') || 'Yes',
+          },
+          variants: variants,
+          status: (getRow(row, 'status', 'Status') || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+          images: [],
+          videos: [],
+          metal_images: metalImages,
+        };
+
+        // FinishDetail (comma-separated IDs) -> finishDetails array
+        const finishDetailIds = toObjectIdArray(getRow(row, 'FinishDetail', 'Finish Detail', 'finishDetail'));
+        const finishDetailsIds = finishDetailIds.filter(id => id instanceof mongoose.Types.ObjectId);
+        productData.finishDetails = finishDetailsIds;
+
+        // Center Stone Details from CSV columns
+        let centerStoneDetailsConfiguration = [];
+        const centerCertified = normalizeCertified(getRow(row, 'center_stone_IGI_GIA_Certified', 'center_stone_IGI _GIA Certified'));
+        if (getRow(row, 'center_stone_diamond', 'Center Stone Diamond')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Diamond',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'center_stone_quantity_diamond'),
+            average_color: getRow(row, 'center_stone_average_color_diamond'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        if (getRow(row, 'center_stone_gemstone', 'Center Stone Gemstone')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Gemstone',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'center_stone_quantity_gemstone'),
+            average_color: getRow(row, 'center_stone_average_color_gemstone'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_gemstone')),
+            dimensions: getRow(row, 'center_stone_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'center_stone_gemstone_type_gemstone'),
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        if (getRow(row, 'center_stone_color_diamond', 'Center Stone Color Diamond')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Color Diamond',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'center_stone_quantity_color_diamond'),
+            average_color: getRow(row, 'center_stone_average_color_color_diamond'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        productData.centerStoneDetailsConfiguration = centerStoneDetailsConfiguration;
+
+        // Side Stone Details
+        let sideStoneDetailsConfiguration = [];
+        if (getRow(row, 'side_stone_diamond', 'Side Stone Diamond')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Diamond',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'side_stone_quantity_diamond'),
+            average_color: getRow(row, 'side_stone_average_color_diamond'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        if (getRow(row, 'side_stone_gemstone', 'Side Stone Gemstone')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Gemstone',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'side_stone_quantity_gemstone'),
+            average_color: getRow(row, 'side_stone_average_color_gemstone'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_gemstone')),
+            dimensions: getRow(row, 'side_stone_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'side_stone_gemstone_type_gemstone'),
+          });
+        }
+        if (getRow(row, 'side_stone_color_diamond', 'Side Stone Color Diamond')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Color Diamond',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'side_stone_quantity_color_diamond'),
+            average_color: getRow(row, 'side_stone_average_color_color_diamond'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        productData.sideStoneDetailsConfiguration = sideStoneDetailsConfiguration;
+
+        // Stone Details form (stone_details_* columns)
+        let stoneDetailsFormConfiguration = [];
+        const stoneDetailsCertified = normalizeCertified(getRow(row, 'stone_details_IGI_GIA_Certified', 'stone_details__IGI_GIA Certified'));
+        if (getRow(row, 'stone_details_diamond', 'Stone Details Diamond')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Diamond',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'stone_details_quantity_diamond'),
+            average_color: getRow(row, 'stone_details_average_color_diamond'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        if (getRow(row, 'stone_details_gemstone', 'Stone Details Gemstone')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Gemstone',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'stone_details_quantity_gemstone'),
+            average_color: getRow(row, 'stone_details_average_color_gemstone'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_gemstone')),
+            dimensions: getRow(row, 'stone_details_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'stone_details_gemstone_type_gemstone'),
+          });
+        }
+        if (getRow(row, 'stone_details_color_diamond', 'Stone Details Color Diamond')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Color Diamond',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'stone_details_quantity_color_diamond'),
+            average_color: getRow(row, 'stone_details_average_color_color_diamond'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        productData.stoneDetailsFormConfiguration = stoneDetailsFormConfiguration;
+
+        if (!categoryId) {
+          errors.push(`Row ${rowNumber}: categoryId is required`);
+          continue;
+        }
+
+        const product = await Model.Product.create(productData);
+
+        await product.populate([
+          'categoryId',
+          'subCategoryId',
+          'subSubCategoryId',
+          'flexibilityType',
+          'sizeScale',
+          'chainLinkypes',
+          'closureTypes',
+          'stoneSettings',
+          'placementFits',
+          'styles',
+          'settingFeatures',
+          'motifThemes'
+        ]);
+
+        createdProducts.push({
+          _id: product._id,
+          product_id: product.product_id,
+          product_name: product.product_name,
+          variants_count: variants.length
+        });
+
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("CSV import completed", {
+      total_rows: results.length,
+      created: createdProducts.length,
+      skipped: skippedProducts.length,
+      errors: errors.length,
+      created_products: createdProducts,
+      skipped_products: skippedProducts,
+      error_details: errors
+    });
+
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+};
+
+// Import Necklace Products from CSV (105 columns)
+module.exports.importNecklaceProducts = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => results.push(row))
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    const createdProducts = [];
+    const skippedProducts = [];
+
+    const getRow = (row, ...keys) => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+    const toObjectIdArray = (str) => {
+      if (!str || !String(str).trim()) return [];
+      return String(str).split(',').map(id => id.trim()).filter(id => id)
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id);
+    };
+    const toHoldingMethodsIds = (str) => {
+      const arr = toObjectIdArray(str || '');
+      return arr.filter(id => id instanceof mongoose.Types.ObjectId);
+    };
+    const toObjectId = (str) => {
+      if (!str || !String(str).trim()) return null;
+      const s = String(str).trim();
+      return mongoose.Types.ObjectId.isValid(s) ? new mongoose.Types.ObjectId(s) : null;
+    };
+    const normalizeCertified = (val) => (/^yes$/i.test(String(val || '').trim()) ? 'Yes' : 'No');
+
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2;
+
+      try {
+        const productId = getRow(row, 'product_id', 'Product ID');
+        const productName = getRow(row, 'product_name', 'Product Name');
+        const description = getRow(row, 'description', 'Description');
+        const categoryIdRaw = getRow(row, 'categoryId', 'Category ID', 'Category');
+        const categoryId = categoryIdRaw && mongoose.Types.ObjectId.isValid(categoryIdRaw) ? new mongoose.Types.ObjectId(categoryIdRaw) : categoryIdRaw;
+        const subCategoryIds = toObjectIdArray(getRow(row, 'subCategoryId', 'Sub Category ID', 'Sub Category'));
+        const subSubCategoryIds = toObjectIdArray(getRow(row, 'subSubCategoryId', 'Sub SubCategory ID', 'Sub SubCategory'));
+
+        const diamondOrigin = (getRow(row, 'diamond_origin', 'Diamond Origin', 'Stone Type') || '').toLowerCase();
+        if (!diamondOrigin || (diamondOrigin !== 'natural' && diamondOrigin !== 'lab grown' && diamondOrigin !== 'lab-grown')) {
+          errors.push(`Row ${rowNumber}: Invalid or missing diamond_origin. Must be 'natural' or 'lab grown'`);
+          continue;
+        }
+        const normalizedDiamondOrigin = diamondOrigin === 'lab-grown' || diamondOrigin === 'lab grown' ? 'Lab Grown' : 'Natural';
+
+        const caratWeightsStr = getRow(row, 'carat_weight', 'Carat Weight');
+        const caratWeights = caratWeightsStr.split(',').map(w => w.trim()).filter(w => w);
+        if (caratWeights.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one carat_weight is required`);
+          continue;
+        }
+
+        const metalColorsStr = getRow(row, 'metal_color', 'Metal Color');
+        const metalColors = metalColorsStr.split(',').map(c => c.trim()).filter(c => c);
+        if (metalColors.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one metal_color is required`);
+          continue;
+        }
+
+        const metalKaratsStr = getRow(row, 'karat', 'Karat');
+        const metalKarats = metalKaratsStr.split(',').map(k => k.trim()).filter(k => k);
+        const hasNonPlatinum = metalColors.some(c => c.toLowerCase() !== 'platinum');
+        if (hasNonPlatinum && metalKarats.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one karat is required when metal_color is not Platinum`);
+          continue;
+        }
+
+        const shapesStr = getRow(row, 'shape', 'Shape');
+        const shapes = shapesStr.split(',').map(s => s.trim()).filter(s => s);
+        if (shapes.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one shape is required`);
+          continue;
+        }
+
+        const diamondQualitiesStr = getRow(row, 'diamond_quality', 'Diamond Quality');
+        const diamondQualities = diamondQualitiesStr.split(',').map(q => q.trim()).filter(q => q);
+        if (diamondQualities.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one diamond_quality is required`);
+          continue;
+        }
+
+        const metalTypes = [];
+        metalColors.forEach(color => {
+          if (color.toLowerCase() === 'platinum') {
+            metalTypes.push('Platinum');
+          } else {
+            metalKarats.forEach(karat => {
+              metalTypes.push(`${karat} ${color}`);
+            });
+          }
+        });
+
+        const metalImages = [];
+        const requiredViewAngles = ['Angled view', 'Top view', 'Side view'];
+        metalColors.forEach(metalColor => {
+          shapes.forEach(shape => {
+            requiredViewAngles.forEach(viewAngle => {
+              metalImages.push({
+                metal_type: metalColor,
+                shape: shape,
+                view_angle: viewAngle,
+                image: `/uploads/placeholder_${metalColor.replace(/\s+/g, '_')}_${shape}_${viewAngle.replace(/\s+/g, '_')}.jpg`
+              });
+            });
+          });
+        });
+
+        const variants = [];
+        caratWeights.forEach(carat => {
+          metalTypes.forEach(metalType => {
+            diamondQualities.forEach(quality => {
+              shapes.forEach(shape => {
+                const price = parseFloat(getRow(row, 'price', 'Price')) || 0;
+                const discountedPrice = parseFloat(getRow(row, 'discounted_price', 'Discounted Price')) || 0;
+                variants.push({
+                  diamond_type: normalizedDiamondOrigin,
+                  carat_weight: `${carat}ct`,
+                  metal_type: metalType,
+                  diamond_quality: quality,
+                  shape: shape,
+                  price: price,
+                  discounted_price: discountedPrice,
+                });
+              });
+            });
+          });
+        });
+
+        if (variants.length === 0) {
+          errors.push(`Row ${rowNumber}: No variants generated`);
+          continue;
+        }
+
+        let finalProductId;
+        if (productId.trim()) {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          finalProductId = `${productId.trim()}${random6Digit}`;
+        } else {
+          finalProductId = `NECK-${Math.floor(100000 + Math.random() * 900000)}`;
+        }
+
+        let existingProduct = await Model.Product.findOne({
+          product_id: finalProductId,
+          isDeleted: false
+        });
+        let retryCount = 0;
+        while (existingProduct && retryCount < 10) {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          if (productId.trim()) {
+            finalProductId = `${productId.trim()}${random6Digit}`;
+          } else {
+            finalProductId = `NECK-${random6Digit}`;
+          }
+          existingProduct = await Model.Product.findOne({
+            product_id: finalProductId,
+            isDeleted: false
+          });
+          retryCount++;
+        }
+        if (existingProduct) {
+          skippedProducts.push({ row: rowNumber, productId: finalProductId, reason: 'Product ID already exists after retries' });
+          continue;
+        }
+
+        const lengthStr = getRow(row, 'Length', 'length');
+        const necklaceLengths = lengthStr ? lengthStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 50) : [];
+
+        const productData = {
+          product_id: finalProductId,
+          product_name: productName.trim() || `Product ${finalProductId}`,
+          description: description.trim() || '',
+          product_type: 'Necklace',
+          categoryId: [categoryId],
+          subCategoryId: subCategoryIds,
+          subSubCategoryId: subSubCategoryIds,
+          metal_type: metalTypes,
+          shape: shapes,
+          karat: metalKarats,
+          design_styles: (getRow(row, 'design_styles', 'Design Styles') || '').split(',').map(s => s.trim()).filter(s => s),
+          diamond_origin: [normalizedDiamondOrigin],
+          diamond_grading: getRow(row, 'diamond_grading', 'Diamond Grading'),
+          diamond_quality: diamondQualities,
+          carat_weight: caratWeights.map(w => parseFloat(w)),
+          stone: (getRow(row, 'stone', 'Stone') || '').split(',').map(s => s.trim()).filter(s => s),
+          gender: (getRow(row, 'gender', 'Gender') || 'Male').toLowerCase() === 'male' ? 'Male' : 'Female',
+          productSpecials: getRow(row, 'product_specials', 'Product Specials'),
+          collections: getRow(row, 'collections', 'Collections'),
+          necklace_size: necklaceLengths,
+          sizeScale: toObjectId(getRow(row, 'sizeScale', 'Size Scale')),
+          assemblyTypes: toObjectId(getRow(row, 'assemblyType', 'Assembly Type')),
+          chainTypes: toObjectId(getRow(row, 'chainType', 'Chain Type')),
+          closureTypes: toObjectId(getRow(row, 'closureType', 'Closure Type')),
+          stoneSettings: toObjectIdArray(getRow(row, 'stoneSetting', 'Stone Setting')),
+          placementFits: toObjectId(getRow(row, 'placementFit', 'Placement Fit')),
+          styles: toObjectIdArray(getRow(row, 'styles', 'Styles')),
+          settingFeatures: toObjectIdArray(getRow(row, 'settingFeatures', 'Setting Features')),
+          motifThemes: toObjectIdArray(getRow(row, 'motifThemes', 'Motif Themes')),
+          finishDetails: toObjectIdArray(getRow(row, 'FinishDetail', 'Finish Detail', 'finishDetail')),
+          engraving_allowed: (getRow(row, 'engraving', 'Engraving') || 'false').toLowerCase() === 'true',
+          gift: (getRow(row, 'gift', 'Gift') || 'false').toLowerCase() === 'true',
+          productDetailsConfiguration: {
+            product_details: getRow(row, 'product_details', 'Product Details'),
+            dimmensions: getRow(row, 'dimmensions', 'Dimensions'),
+            average_length: getRow(row, 'average_length', 'Average Length') || '',
+            rhodium_plate: getRow(row, 'rhodium_plate', 'Rhodium Plate') || 'Yes',
+          },
+          variants: variants,
+          status: (getRow(row, 'status', 'Status') || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+          images: [],
+          videos: [],
+          metal_images: metalImages,
+        };
+
+        // Center Stone Details from CSV columns
+        let centerStoneDetailsConfiguration = [];
+        const centerCertified = normalizeCertified(getRow(row, 'center_stone_IGI_GIA_Certified', 'center_stone_IGI _GIA Certified'));
+        if (getRow(row, 'center_stone_diamond', 'Center Stone Diamond')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Diamond',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'center_stone_quantity_diamond'),
+            average_color: getRow(row, 'center_stone_average_color_diamond'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        if (getRow(row, 'center_stone_gemstone', 'Center Stone Gemstone')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Gemstone',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'center_stone_quantity_gemstone'),
+            average_color: getRow(row, 'center_stone_average_color_gemstone'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_gemstone')),
+            dimensions: getRow(row, 'center_stone_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'center_stone_gemstone_type_gemstone'),
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        if (getRow(row, 'center_stone_color_diamond', 'Center Stone Color Diamond')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Color Diamond',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'center_stone_quantity_color_diamond'),
+            average_color: getRow(row, 'center_stone_average_color_color_diamond'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        productData.centerStoneDetailsConfiguration = centerStoneDetailsConfiguration;
+
+        let sideStoneDetailsConfiguration = [];
+        if (getRow(row, 'side_stone_diamond', 'Side Stone Diamond')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Diamond',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'side_stone_quantity_diamond'),
+            average_color: getRow(row, 'side_stone_average_color_diamond'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        if (getRow(row, 'side_stone_gemstone', 'Side Stone Gemstone')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Gemstone',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'side_stone_quantity_gemstone'),
+            average_color: getRow(row, 'side_stone_average_color_gemstone'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_gemstone')),
+            dimensions: getRow(row, 'side_stone_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'side_stone_gemstone_type_gemstone'),
+          });
+        }
+        if (getRow(row, 'side_stone_color_diamond', 'Side Stone Color Diamond')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Color Diamond',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'side_stone_quantity_color_diamond'),
+            average_color: getRow(row, 'side_stone_average_color_color_diamond'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        productData.sideStoneDetailsConfiguration = sideStoneDetailsConfiguration;
+
+        let stoneDetailsFormConfiguration = [];
+        const stoneDetailsCertified = normalizeCertified(getRow(row, 'stone_details_IGI_GIA_Certified', 'stone_details__IGI_GIA Certified'));
+        if (getRow(row, 'stone_details_diamond', 'Stone Details Diamond')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Diamond',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'stone_details_quantity_diamond'),
+            average_color: getRow(row, 'stone_details_average_color_diamond'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        if (getRow(row, 'stone_details_gemstone', 'Stone Details Gemstone')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Gemstone',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'stone_details_quantity_gemstone'),
+            average_color: getRow(row, 'stone_details_average_color_gemstone'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_gemstone')),
+            dimensions: getRow(row, 'stone_details_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'stone_details_gemstone_type_gemstone'),
+          });
+        }
+        if (getRow(row, 'stone_details_color_diamond', 'Stone Details Color Diamond')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Color Diamond',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'stone_details_quantity_color_diamond'),
+            average_color: getRow(row, 'stone_details_average_color_color_diamond'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        productData.stoneDetailsFormConfiguration = stoneDetailsFormConfiguration;
+
+        if (!categoryId) {
+          errors.push(`Row ${rowNumber}: categoryId is required`);
+          continue;
+        }
+
+        const product = await Model.Product.create(productData);
+
+        await product.populate([
+          'categoryId',
+          'subCategoryId',
+          'subSubCategoryId',
+          'sizeScale',
+          'assemblyTypes',
+          'chainTypes',
+          'closureTypes',
+          'stoneSettings',
+          'placementFits',
+          'styles',
+          'settingFeatures',
+          'motifThemes',
+          'finishDetails'
+        ]);
+
+        createdProducts.push({
+          _id: product._id,
+          product_id: product.product_id,
+          product_name: product.product_name,
+          variants_count: variants.length
+        });
+
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("CSV import completed", {
+      total_rows: results.length,
+      created: createdProducts.length,
+      skipped: skippedProducts.length,
+      errors: errors.length,
+      created_products: createdProducts,
+      skipped_products: skippedProducts,
+      error_details: errors
+    });
+
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+};
+
 // Export Ring Product Variants to CSV
 module.exports.exportRingVariants = async (req, res, next) => {
   try {
@@ -4537,6 +5500,1018 @@ module.exports.importRingVariants = async (req, res, next) => {
     });
   } catch (error) {
     // Clean up uploaded file on error
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+};
+
+// Export Bracelet Product Variants to CSV (same format as rings: product_id, diamond_type, carat_weight, diamond_quality, shape, price, discounted_price)
+module.exports.exportBraceletVariants = async (req, res, next) => {
+  try {
+    const { productIds } = req.query;
+    let filter = { isDeleted: false, product_type: 'Bracelets' };
+
+    if (productIds) {
+      const idsArray = String(productIds)
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      if (idsArray.length > 0) {
+        filter = { ...filter, _id: { $in: idsArray } };
+      }
+    }
+
+    const products = await Model.Product.find(filter).select('_id variants');
+    const rows = [];
+
+    products.forEach((product) => {
+      (product.variants || []).forEach((variant) => {
+        rows.push({
+          product_id: product._id.toString(),
+          diamond_type: variant.diamond_type || '',
+          carat_weight: variant.carat_weight || '',
+          diamond_quality: variant.diamond_quality || '',
+          shape: variant.shape || '',
+          price: typeof variant.price === 'number' ? variant.price : Number(variant.price || 0),
+          discounted_price: typeof variant.discounted_price === 'number'
+            ? variant.discounted_price
+            : Number(variant.discounted_price || 0)
+        });
+      });
+    });
+
+    const header = ['product_id', 'diamond_type', 'carat_weight', 'diamond_quality', 'shape', 'price', 'discounted_price'];
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const lines = [header.join(',')];
+    rows.forEach((row) => {
+      lines.push([
+        escapeCsvValue(row.product_id),
+        escapeCsvValue(row.diamond_type),
+        escapeCsvValue(row.carat_weight),
+        escapeCsvValue(row.diamond_quality),
+        escapeCsvValue(row.shape),
+        escapeCsvValue(row.price),
+        escapeCsvValue(row.discounted_price)
+      ].join(','));
+    });
+
+    const csvContent = lines.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="bracelet_variants.csv"');
+    return res.send(csvContent);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Export Necklace Product Variants to CSV (same format as bracelet)
+module.exports.exportNecklaceVariants = async (req, res, next) => {
+  try {
+    const { productIds } = req.query;
+    let filter = { isDeleted: false, product_type: 'Necklace' };
+
+    if (productIds) {
+      const idsArray = String(productIds)
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      if (idsArray.length > 0) {
+        filter = { ...filter, _id: { $in: idsArray } };
+      }
+    }
+
+    const products = await Model.Product.find(filter).select('_id variants');
+    const rows = [];
+
+    products.forEach((product) => {
+      (product.variants || []).forEach((variant) => {
+        rows.push({
+          product_id: product._id.toString(),
+          diamond_type: variant.diamond_type || '',
+          carat_weight: variant.carat_weight || '',
+          diamond_quality: variant.diamond_quality || '',
+          shape: variant.shape || '',
+          price: typeof variant.price === 'number' ? variant.price : Number(variant.price || 0),
+          discounted_price: typeof variant.discounted_price === 'number'
+            ? variant.discounted_price
+            : Number(variant.discounted_price || 0)
+        });
+      });
+    });
+
+    const header = ['product_id', 'diamond_type', 'carat_weight', 'diamond_quality', 'shape', 'price', 'discounted_price'];
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const lines = [header.join(',')];
+    rows.forEach((row) => {
+      lines.push([
+        escapeCsvValue(row.product_id),
+        escapeCsvValue(row.diamond_type),
+        escapeCsvValue(row.carat_weight),
+        escapeCsvValue(row.diamond_quality),
+        escapeCsvValue(row.shape),
+        escapeCsvValue(row.price),
+        escapeCsvValue(row.discounted_price)
+      ].join(','));
+    });
+
+    const csvContent = lines.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="necklace_variants.csv"');
+    return res.send(csvContent);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Import Bracelet Product Variants from CSV and update prices (same format as rings)
+module.exports.importBraceletVariants = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => results.push(row))
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    let updatedVariants = 0;
+    let processedRows = 0;
+
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2;
+
+      try {
+        const productId = (row['product_id'] || row['Product Id'] || row['Product ID'] || '').trim();
+        const diamondType = (row['diamond_type'] || row['Diamond Type'] || '').trim();
+        const caratWeight = (row['carat_weight'] || row['Carat Weight'] || '').trim();
+        const diamondQuality = (row['diamond_quality'] || row['Diamond Quality'] || '').trim();
+        const shape = (row['shape'] || row['Shape'] || '').trim();
+        const priceStr = (row['price'] || row['Price'] || '').toString().trim();
+        const discountedPriceStr = (row['discounted_price'] || row['Discounted Price'] || '').toString().trim();
+
+        if (!productId) {
+          errors.push(`Row ${rowNumber}: product_id is required`);
+          continue;
+        }
+
+        if (!diamondType || !caratWeight || !diamondQuality || !shape) {
+          errors.push(`Row ${rowNumber}: diamond_type, carat_weight, diamond_quality and shape are required`);
+          continue;
+        }
+
+        const price = parseFloat(priceStr || '0');
+        const discountedPrice = parseFloat(discountedPriceStr || '0');
+
+        if (isNaN(price) || isNaN(discountedPrice)) {
+          errors.push(`Row ${rowNumber}: price and discounted_price must be valid numbers`);
+          continue;
+        }
+
+        const product = await Model.Product.findOne({
+          _id: productId,
+          isDeleted: false,
+          product_type: 'Bracelets'
+        });
+
+        if (!product) {
+          errors.push(`Row ${rowNumber}: Bracelet product not found for product_id ${productId}`);
+          continue;
+        }
+
+        let variantUpdatedInProduct = 0;
+
+        (product.variants || []).forEach((variant) => {
+          const vDiamondType = (variant.diamond_type || '').toString();
+          const vCaratWeight = (variant.carat_weight || '').toString();
+          const vDiamondQuality = (variant.diamond_quality || '').toString();
+          const vShape = (variant.shape || '').toString();
+
+          if (
+            vDiamondType === diamondType &&
+            vCaratWeight === caratWeight &&
+            vDiamondQuality === diamondQuality &&
+            vShape === shape
+          ) {
+            variant.price = price;
+            variant.discounted_price = discountedPrice;
+            variantUpdatedInProduct += 1;
+          }
+        });
+
+        if (variantUpdatedInProduct === 0) {
+          errors.push(`Row ${rowNumber}: No matching variants found for product_id ${productId}`);
+          continue;
+        }
+
+        await product.save();
+        updatedVariants += variantUpdatedInProduct;
+        processedRows += 1;
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("Bracelet variant CSV import completed", {
+      total_rows: results.length,
+      processed_rows: processedRows,
+      updated_variants: updatedVariants,
+      errors: errors.length,
+      error_details: errors
+    });
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+};
+
+// Import Necklace Product Variants from CSV and update prices (same format as bracelet)
+module.exports.importNecklaceVariants = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => results.push(row))
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    let updatedVariants = 0;
+    let processedRows = 0;
+
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2;
+
+      try {
+        const productId = (row['product_id'] || row['Product Id'] || row['Product ID'] || '').trim();
+        const diamondType = (row['diamond_type'] || row['Diamond Type'] || '').trim();
+        const caratWeight = (row['carat_weight'] || row['Carat Weight'] || '').trim();
+        const diamondQuality = (row['diamond_quality'] || row['Diamond Quality'] || '').trim();
+        const shape = (row['shape'] || row['Shape'] || '').trim();
+        const priceStr = (row['price'] || row['Price'] || '').toString().trim();
+        const discountedPriceStr = (row['discounted_price'] || row['Discounted Price'] || '').toString().trim();
+
+        if (!productId) {
+          errors.push(`Row ${rowNumber}: product_id is required`);
+          continue;
+        }
+
+        if (!diamondType || !caratWeight || !diamondQuality || !shape) {
+          errors.push(`Row ${rowNumber}: diamond_type, carat_weight, diamond_quality and shape are required`);
+          continue;
+        }
+
+        const price = parseFloat(priceStr || '0');
+        const discountedPrice = parseFloat(discountedPriceStr || '0');
+
+        if (isNaN(price) || isNaN(discountedPrice)) {
+          errors.push(`Row ${rowNumber}: price and discounted_price must be valid numbers`);
+          continue;
+        }
+
+        const product = await Model.Product.findOne({
+          _id: productId,
+          isDeleted: false,
+          product_type: 'Necklace'
+        });
+
+        if (!product) {
+          errors.push(`Row ${rowNumber}: Necklace product not found for product_id ${productId}`);
+          continue;
+        }
+
+        let variantUpdatedInProduct = 0;
+
+        (product.variants || []).forEach((variant) => {
+          const vDiamondType = (variant.diamond_type || '').toString();
+          const vCaratWeight = (variant.carat_weight || '').toString();
+          const vDiamondQuality = (variant.diamond_quality || '').toString();
+          const vShape = (variant.shape || '').toString();
+
+          if (
+            vDiamondType === diamondType &&
+            vCaratWeight === caratWeight &&
+            vDiamondQuality === diamondQuality &&
+            vShape === shape
+          ) {
+            variant.price = price;
+            variant.discounted_price = discountedPrice;
+            variantUpdatedInProduct += 1;
+          }
+        });
+
+        if (variantUpdatedInProduct === 0) {
+          errors.push(`Row ${rowNumber}: No matching variants found for product_id ${productId}`);
+          continue;
+        }
+
+        await product.save();
+        updatedVariants += variantUpdatedInProduct;
+        processedRows += 1;
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("Necklace variant CSV import completed", {
+      total_rows: results.length,
+      processed_rows: processedRows,
+      updated_variants: updatedVariants,
+      errors: errors.length,
+      error_details: errors
+    });
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+};
+
+// Export Earrings Product Variants to CSV (same format as bracelet: product_id, diamond_type, carat_weight, diamond_quality, shape, price, discounted_price)
+module.exports.exportEarringsVariants = async (req, res, next) => {
+  try {
+    const { productIds } = req.query;
+    let filter = { isDeleted: false, product_type: 'Earrings' };
+
+    if (productIds) {
+      const idsArray = String(productIds)
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+
+      if (idsArray.length > 0) {
+        filter = { ...filter, _id: { $in: idsArray } };
+      }
+    }
+
+    const products = await Model.Product.find(filter).select('_id variants');
+    const rows = [];
+
+    products.forEach((product) => {
+      (product.variants || []).forEach((variant) => {
+        rows.push({
+          product_id: product._id.toString(),
+          diamond_type: variant.diamond_type || '',
+          carat_weight: variant.carat_weight || '',
+          diamond_quality: variant.diamond_quality || '',
+          shape: variant.shape || '',
+          price: typeof variant.price === 'number' ? variant.price : Number(variant.price || 0),
+          discounted_price: typeof variant.discounted_price === 'number'
+            ? variant.discounted_price
+            : Number(variant.discounted_price || 0)
+        });
+      });
+    });
+
+    const header = ['product_id', 'diamond_type', 'carat_weight', 'diamond_quality', 'shape', 'price', 'discounted_price'];
+    const escapeCsvValue = (value) => {
+      if (value === null || value === undefined) return '';
+      const str = String(value);
+      if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const lines = [header.join(',')];
+    rows.forEach((row) => {
+      lines.push([
+        escapeCsvValue(row.product_id),
+        escapeCsvValue(row.diamond_type),
+        escapeCsvValue(row.carat_weight),
+        escapeCsvValue(row.diamond_quality),
+        escapeCsvValue(row.shape),
+        escapeCsvValue(row.price),
+        escapeCsvValue(row.discounted_price)
+      ].join(','));
+    });
+
+    const csvContent = lines.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="earring_variants.csv"');
+    return res.send(csvContent);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Import Earrings Product Variants from CSV and update prices (same format as bracelet)
+module.exports.importEarringsVariants = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => results.push(row))
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    let updatedVariants = 0;
+    let processedRows = 0;
+
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2;
+
+      try {
+        const productId = (row['product_id'] || row['Product Id'] || row['Product ID'] || '').trim();
+        const diamondType = (row['diamond_type'] || row['Diamond Type'] || '').trim();
+        const caratWeight = (row['carat_weight'] || row['Carat Weight'] || '').trim();
+        const diamondQuality = (row['diamond_quality'] || row['Diamond Quality'] || '').trim();
+        const shape = (row['shape'] || row['Shape'] || '').trim();
+        const priceStr = (row['price'] || row['Price'] || '').toString().trim();
+        const discountedPriceStr = (row['discounted_price'] || row['Discounted Price'] || '').toString().trim();
+
+        if (!productId) {
+          errors.push(`Row ${rowNumber}: product_id is required`);
+          continue;
+        }
+
+        if (!diamondType || !caratWeight || !diamondQuality || !shape) {
+          errors.push(`Row ${rowNumber}: diamond_type, carat_weight, diamond_quality and shape are required`);
+          continue;
+        }
+
+        const price = parseFloat(priceStr || '0');
+        const discountedPrice = parseFloat(discountedPriceStr || '0');
+
+        if (isNaN(price) || isNaN(discountedPrice)) {
+          errors.push(`Row ${rowNumber}: price and discounted_price must be valid numbers`);
+          continue;
+        }
+
+        const product = await Model.Product.findOne({
+          _id: productId,
+          isDeleted: false,
+          product_type: 'Earrings'
+        });
+
+        if (!product) {
+          errors.push(`Row ${rowNumber}: Earrings product not found for product_id ${productId}`);
+          continue;
+        }
+
+        let variantUpdatedInProduct = 0;
+
+        (product.variants || []).forEach((variant) => {
+          const vDiamondType = (variant.diamond_type || '').toString();
+          const vCaratWeight = (variant.carat_weight || '').toString();
+          const vDiamondQuality = (variant.diamond_quality || '').toString();
+          const vShape = (variant.shape || '').toString();
+
+          if (
+            vDiamondType === diamondType &&
+            vCaratWeight === caratWeight &&
+            vDiamondQuality === diamondQuality &&
+            vShape === shape
+          ) {
+            variant.price = price;
+            variant.discounted_price = discountedPrice;
+            variantUpdatedInProduct += 1;
+          }
+        });
+
+        if (variantUpdatedInProduct === 0) {
+          errors.push(`Row ${rowNumber}: No matching variants found for product_id ${productId}`);
+          continue;
+        }
+
+        await product.save();
+        updatedVariants += variantUpdatedInProduct;
+        processedRows += 1;
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("Earrings variant CSV import completed", {
+      total_rows: results.length,
+      processed_rows: processedRows,
+      updated_variants: updatedVariants,
+      errors: errors.length,
+      error_details: errors
+    });
+  } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(error);
+  }
+};
+
+// Import Earrings Products from CSV (104 columns)
+module.exports.importEarringsProducts = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new Error("CSV file is required");
+    }
+
+    const csvFile = req.file;
+    const results = [];
+    const errors = [];
+
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(csvFile.path)
+        .pipe(csv())
+        .on('data', (row) => {
+          results.push(row);
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    if (results.length === 0) {
+      throw new Error("CSV file is empty");
+    }
+
+    const createdProducts = [];
+    const skippedProducts = [];
+
+    const getRow = (row, ...keys) => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+    const toObjectIdArray = (str) => {
+      if (!str || !String(str).trim()) return [];
+      return String(str).split(',').map(id => id.trim()).filter(id => id)
+        .map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id);
+    };
+    const toHoldingMethodsIds = (str) => {
+      const arr = toObjectIdArray(str || '');
+      return arr.filter(id => id instanceof mongoose.Types.ObjectId);
+    };
+    const toObjectId = (str) => {
+      if (!str || !String(str).trim()) return null;
+      const s = String(str).trim();
+      return mongoose.Types.ObjectId.isValid(s) ? new mongoose.Types.ObjectId(s) : null;
+    };
+    const normalizeCertified = (val) => (/^yes$/i.test(String(val || '').trim()) ? 'Yes' : 'No');
+
+    for (let i = 0; i < results.length; i++) {
+      const row = results[i];
+      const rowNumber = i + 2;
+
+      try {
+        const productId = getRow(row, 'product_id', 'Product ID');
+        const productName = getRow(row, 'product_name', 'Product Name');
+        const description = getRow(row, 'description', 'Description');
+        const categoryIdRaw = getRow(row, 'categoryId', 'Category ID', 'Category');
+        const categoryId = categoryIdRaw && mongoose.Types.ObjectId.isValid(categoryIdRaw) ? new mongoose.Types.ObjectId(categoryIdRaw) : categoryIdRaw;
+        const subCategoryIds = toObjectIdArray(getRow(row, 'subCategoryId', 'Sub Category ID', 'Sub Category'));
+        const subSubCategoryIds = toObjectIdArray(getRow(row, 'subSubCategoryId', 'Sub SubCategory ID', 'Sub SubCategory'));
+
+        const diamondOrigin = (getRow(row, 'diamond_origin', 'Diamond Origin', 'Stone Type') || '').toLowerCase();
+        if (!diamondOrigin || (diamondOrigin !== 'natural' && diamondOrigin !== 'lab grown' && diamondOrigin !== 'lab-grown')) {
+          errors.push(`Row ${rowNumber}: Invalid or missing diamond_origin. Must be 'natural' or 'lab grown'`);
+          continue;
+        }
+        const normalizedDiamondOrigin = diamondOrigin === 'lab-grown' || diamondOrigin === 'lab grown' ? 'Lab Grown' : 'Natural';
+
+        const caratWeightsStr = getRow(row, 'carat_weight', 'Carat Weight');
+        const caratWeights = caratWeightsStr.split(',').map(w => w.trim()).filter(w => w);
+        if (caratWeights.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one carat_weight is required`);
+          continue;
+        }
+
+        const metalColorsStr = getRow(row, 'metal_color', 'Metal Color');
+        const metalColors = metalColorsStr.split(',').map(c => c.trim()).filter(c => c);
+        if (metalColors.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one metal_color is required`);
+          continue;
+        }
+
+        const metalKaratsStr = getRow(row, 'karat', 'Karat');
+        const metalKarats = metalKaratsStr.split(',').map(k => k.trim()).filter(k => k);
+        const hasNonPlatinum = metalColors.some(c => c.toLowerCase() !== 'platinum');
+        if (hasNonPlatinum && metalKarats.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one karat is required when metal_color is not Platinum`);
+          continue;
+        }
+
+        const shapesStr = getRow(row, 'shape', 'Shape');
+        const shapes = shapesStr.split(',').map(s => s.trim()).filter(s => s);
+        if (shapes.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one shape is required`);
+          continue;
+        }
+
+        const diamondQualitiesStr = getRow(row, 'diamond_quality', 'Diamond Quality');
+        const diamondQualities = diamondQualitiesStr.split(',').map(q => q.trim()).filter(q => q);
+        if (diamondQualities.length === 0) {
+          errors.push(`Row ${rowNumber}: At least one diamond_quality is required`);
+          continue;
+        }
+
+        const metalTypes = [];
+        metalColors.forEach(color => {
+          if (color.toLowerCase() === 'platinum') {
+            metalTypes.push('Platinum');
+          } else {
+            metalKarats.forEach(karat => {
+              metalTypes.push(`${karat} ${color}`);
+            });
+          }
+        });
+
+        const metalImages = [];
+        const requiredViewAngles = ['Angled view', 'Top view', 'Side view'];
+        metalColors.forEach(metalColor => {
+          shapes.forEach(shape => {
+            requiredViewAngles.forEach(viewAngle => {
+              metalImages.push({
+                metal_type: metalColor,
+                shape: shape,
+                view_angle: viewAngle,
+                image: `/uploads/placeholder_${metalColor.replace(/\s+/g, '_')}_${shape}_${viewAngle.replace(/\s+/g, '_')}.jpg`
+              });
+            });
+          });
+        });
+
+        const variants = [];
+        caratWeights.forEach(carat => {
+          metalTypes.forEach(metalType => {
+            diamondQualities.forEach(quality => {
+              shapes.forEach(shape => {
+                const price = parseFloat(getRow(row, 'price', 'Price')) || 0;
+                const discountedPrice = parseFloat(getRow(row, 'discounted_price', 'Discounted Price')) || 0;
+                variants.push({
+                  diamond_type: normalizedDiamondOrigin,
+                  carat_weight: `${carat}ct`,
+                  metal_type: metalType,
+                  diamond_quality: quality,
+                  shape: shape,
+                  price: price,
+                  discounted_price: discountedPrice,
+                });
+              });
+            });
+          });
+        });
+
+        if (variants.length === 0) {
+          errors.push(`Row ${rowNumber}: No variants generated`);
+          continue;
+        }
+
+        let finalProductId;
+        if (productId.trim()) {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          finalProductId = `${productId.trim()}${random6Digit}`;
+        } else {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          finalProductId = `EAR-${random6Digit}`;
+        }
+
+        let existingProduct = await Model.Product.findOne({
+          product_id: finalProductId,
+          isDeleted: false
+        });
+        let retryCount = 0;
+        while (existingProduct && retryCount < 10) {
+          const random6Digit = Math.floor(100000 + Math.random() * 900000);
+          if (productId.trim()) {
+            finalProductId = `${productId.trim()}${random6Digit}`;
+          } else {
+            finalProductId = `EAR-${random6Digit}`;
+          }
+          existingProduct = await Model.Product.findOne({
+            product_id: finalProductId,
+            isDeleted: false
+          });
+          retryCount++;
+        }
+        if (existingProduct) {
+          skippedProducts.push({ row: rowNumber, productId: finalProductId, reason: 'Product ID already exists after retries' });
+          continue;
+        }
+
+        const productData = {
+          product_id: finalProductId,
+          product_name: productName.trim() || `Product ${finalProductId}`,
+          description: description.trim() || '',
+          product_type: 'Earrings',
+          categoryId: [categoryId],
+          subCategoryId: subCategoryIds,
+          subSubCategoryId: subSubCategoryIds,
+          metal_type: metalTypes,
+          shape: shapes,
+          karat: metalKarats,
+          design_styles: (getRow(row, 'design_styles', 'Design Styles') || '').split(',').map(s => s.trim()).filter(s => s),
+          diamond_origin: [normalizedDiamondOrigin],
+          diamond_grading: getRow(row, 'diamond_grading', 'Diamond Grading'),
+          diamond_quality: diamondQualities,
+          carat_weight: caratWeights.map(w => parseFloat(w)),
+          stone: (getRow(row, 'stone', 'Stone') || '').split(',').map(s => s.trim()).filter(s => s),
+          gender: (getRow(row, 'gender', 'Gender') || 'Male').toLowerCase() === 'male' ? 'Male' : 'Female',
+          productSpecials: getRow(row, 'product_specials', 'Product Specials'),
+          collections: getRow(row, 'collections', 'Collections'),
+          sizeScale: toObjectId(getRow(row, 'sizeScale', 'Size Scale')),
+          dropShape: toObjectIdArray(getRow(row, 'dropShape', 'Drop Shape')),
+          attachmentType: toObjectId(getRow(row, 'attachmentType', 'Attachment Type')),
+          earringOrientation: toObjectId(getRow(row, 'earringOrientation', 'Earring Orientation')),
+          stoneSettings: toObjectIdArray(getRow(row, 'stoneSetting', 'stoneSetting', 'Stone Setting')),
+          placementFits: toObjectId(getRow(row, 'placementFit', 'Placement Fit')),
+          styles: toObjectIdArray(getRow(row, 'styles', 'Styles')),
+          settingFeatures: toObjectIdArray(getRow(row, 'settingFeatures', 'Setting Features')),
+          motifThemes: toObjectIdArray(getRow(row, 'motifThemes', 'Motif Themes')),
+          finishDetails: toObjectIdArray(getRow(row, 'FinishDetail', 'Finish Detail', 'finishDetail')),
+          engraving_allowed: (getRow(row, 'engraving', 'Engraving') || 'false').toLowerCase() === 'true',
+          gift: (getRow(row, 'gift', 'Gift') || 'false').toLowerCase() === 'true',
+          productDetailsConfiguration: {
+            product_details: getRow(row, 'product_details', 'Product Details'),
+            dimmensions: getRow(row, 'dimmensions', 'Dimmensions', 'dimensions'),
+            average_length: getRow(row, 'average_length', 'Average Length') || '',
+            rhodium_plate: getRow(row, 'rhodium_plate', 'Rhodium Plate') || 'Yes',
+          },
+          variants: variants,
+          status: (getRow(row, 'status', 'Status') || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+          images: [],
+          videos: [],
+          metal_images: metalImages,
+        };
+
+        // Center Stone Details from CSV columns
+        let centerStoneDetailsConfiguration = [];
+        const centerCertified = normalizeCertified(getRow(row, 'center_stone_IGI_GIA_Certified', 'center_stone_IGI _GIA Certified'));
+        if (getRow(row, 'center_stone_diamond', 'Center Stone Diamond')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Diamond',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'center_stone_quantity_diamond'),
+            average_color: getRow(row, 'center_stone_average_color_diamond'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        if (getRow(row, 'center_stone_gemstone', 'Center Stone Gemstone')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Gemstone',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'center_stone_quantity_gemstone'),
+            average_color: getRow(row, 'center_stone_average_color_gemstone'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_gemstone')),
+            dimensions: getRow(row, 'center_stone_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'center_stone_gemstone_type_gemstone'),
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        if (getRow(row, 'center_stone_color_diamond', 'Center Stone Color Diamond')) {
+          centerStoneDetailsConfiguration.push({
+            stone: 'Color Diamond',
+            diamond_origin: getRow(row, 'center_stone_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'center_stone_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'center_stone_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'center_stone_quantity_color_diamond'),
+            average_color: getRow(row, 'center_stone_average_color_color_diamond'),
+            average_clarity: getRow(row, 'center_stone_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'center_stone_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+            certified: centerCertified,
+            color: '',
+          });
+        }
+        productData.centerStoneDetailsConfiguration = centerStoneDetailsConfiguration;
+
+        // Side Stone Details
+        let sideStoneDetailsConfiguration = [];
+        if (getRow(row, 'side_stone_diamond', 'Side Stone Diamond')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Diamond',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'side_stone_quantity_diamond'),
+            average_color: getRow(row, 'side_stone_average_color_diamond'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        if (getRow(row, 'side_stone_gemstone', 'Side Stone Gemstone')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Gemstone',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'side_stone_quantity_gemstone'),
+            average_color: getRow(row, 'side_stone_average_color_gemstone'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_gemstone')),
+            dimensions: getRow(row, 'side_stone_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'side_stone_gemstone_type_gemstone'),
+          });
+        }
+        if (getRow(row, 'side_stone_color_diamond', 'Side Stone Color Diamond')) {
+          sideStoneDetailsConfiguration.push({
+            stone: 'Color Diamond',
+            diamond_origin: getRow(row, 'side_stone_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'side_stone_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'side_stone_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'side_stone_quantity_color_diamond'),
+            average_color: getRow(row, 'side_stone_average_color_color_diamond'),
+            average_clarity: getRow(row, 'side_stone_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'side_stone_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        productData.sideStoneDetailsConfiguration = sideStoneDetailsConfiguration;
+
+        // Stone Details form (stone_details_* columns)
+        let stoneDetailsFormConfiguration = [];
+        const stoneDetailsCertified = normalizeCertified(getRow(row, 'stone_details_IGI_GIA_Certified', 'stone_details__IGI_GIA Certified'));
+        if (getRow(row, 'stone_details_diamond', 'Stone Details Diamond')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Diamond',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_diamond'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight_diamond'),
+            quantity: getRow(row, 'stone_details_quantity_diamond'),
+            average_color: getRow(row, 'stone_details_average_color_diamond'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        if (getRow(row, 'stone_details_gemstone', 'Stone Details Gemstone')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Gemstone',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_gemstone'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_gemstone') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: '',
+            quantity: getRow(row, 'stone_details_quantity_gemstone'),
+            average_color: getRow(row, 'stone_details_average_color_gemstone'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_gemstone'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_gemstone')),
+            dimensions: getRow(row, 'stone_details_dimensions_gemstone'),
+            gemstone_type: getRow(row, 'stone_details_gemstone_type_gemstone'),
+          });
+        }
+        if (getRow(row, 'stone_details_color_diamond', 'Stone Details Color Diamond')) {
+          stoneDetailsFormConfiguration.push({
+            stone: 'Color Diamond',
+            certified: stoneDetailsCertified,
+            color: '',
+            diamond_origin: getRow(row, 'stone_details_diamond_origin_color_diamond'),
+            diamond_shapes: (getRow(row, 'stone_details_diamond_shapes_color_diamond') || '').split(',').map(s => s.trim()).filter(s => s),
+            min_diamond_weight: getRow(row, 'stone_details_min_diamond_weight_color_diamond'),
+            quantity: getRow(row, 'stone_details_quantity_color_diamond'),
+            average_color: getRow(row, 'stone_details_average_color_color_diamond'),
+            average_clarity: getRow(row, 'stone_details_average_clarity_color_diamond'),
+            holding_methods: toHoldingMethodsIds(getRow(row, 'stone_details_holding_methods_color_diamond')),
+            dimensions: '',
+            gemstone_type: '',
+          });
+        }
+        productData.stoneDetailsFormConfiguration = stoneDetailsFormConfiguration;
+
+        if (!categoryId) {
+          errors.push(`Row ${rowNumber}: categoryId is required`);
+          continue;
+        }
+
+        const product = await Model.Product.create(productData);
+
+        await product.populate([
+          'categoryId',
+          'subCategoryId',
+          'subSubCategoryId',
+          'sizeScale',
+          'dropShape',
+          'attachmentType',
+          'earringOrientation',
+          'stoneSettings',
+          'placementFits',
+          'styles',
+          'settingFeatures',
+          'motifThemes',
+          'finishDetails'
+        ]);
+
+        createdProducts.push({
+          _id: product._id,
+          product_id: product.product_id,
+          product_name: product.product_name,
+          variants_count: variants.length
+        });
+
+      } catch (error) {
+        errors.push(`Row ${rowNumber}: ${error.message}`);
+      }
+    }
+
+    if (fs.existsSync(csvFile.path)) {
+      fs.unlinkSync(csvFile.path);
+    }
+
+    return res.success("CSV import completed", {
+      total_rows: results.length,
+      created: createdProducts.length,
+      skipped: skippedProducts.length,
+      errors: errors.length,
+      created_products: createdProducts,
+      skipped_products: skippedProducts,
+      error_details: errors
+    });
+
+  } catch (error) {
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }

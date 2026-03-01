@@ -120,6 +120,93 @@ module.exports.getBandFits = async (req, res, next) => {
   }
 }
 
+// SizeScale APIs
+module.exports.createSizeScale = async (req, res, next) => {
+  try {
+    const { code, displayName, id } = req.body;
+    
+    if (!code || !displayName) {
+      throw new Error("Code and displayName are required");
+    }
+    
+    let imagePath = '';
+    if (req.file) {
+      const fileFullPath = req.file.path;
+      let filePath = `uploads/${req.file.filename}`;
+      const bucketName = process.env.AWS_S3_BUCKET_NAME;
+      const fileUrl = await uploadFileToS3(
+        fileFullPath,
+        bucketName,
+        filePath
+      );
+      fs.unlinkSync(fileFullPath);
+      imagePath = "/" + filePath;
+    }
+    
+    let sizeScale;
+    
+    if (id) {
+      const existingRecord = await Model.SizeScale.findOne({
+        _id: id,
+        isDeleted: false
+      });
+      
+      if (!existingRecord) {
+        throw new Error("Size scale not found");
+      }
+      
+      const codeConflict = await Model.SizeScale.findOne({
+        code: code,
+        _id: { $ne: id },
+        isDeleted: false
+      });
+      
+      if (codeConflict) {
+        throw new Error("Size scale with this code already exists");
+      }
+      
+      const updateData = { code, displayName };
+      if (imagePath) {
+        updateData.image = imagePath;
+      }
+      
+      sizeScale = await Model.SizeScale.findByIdAndUpdate(
+        id,
+        updateData,
+        { new: true }
+      );
+      
+      return res.success(constants.MESSAGES.DATA_UPDATED, sizeScale);
+    } else {
+      const existing = await Model.SizeScale.findOne({
+        code: code,
+        isDeleted: false
+      });
+      
+      if (existing) {
+        throw new Error("Size scale with this code already exists");
+      }
+      
+      sizeScale = await Model.SizeScale.create({ code, displayName, image: imagePath });
+      return res.success(constants.MESSAGES.DATA_UPLOADED, sizeScale);
+    }
+  } catch (error) {
+    next(error);
+  }
+}
+
+module.exports.getSizeScales = async (req, res, next) => {
+  try {
+    let sizeScales = await Model.SizeScale.find({
+      isDeleted: false
+    }).sort({ createdAt: -1 });
+    
+    return res.success(constants.MESSAGES.DATA_FETCHED, sizeScales);
+  } catch (error) {
+    next(error);
+  }
+}
+
 // FlexibilityType APIs
 module.exports.createFlexibilityType = async (req, res, next) => {
   try {

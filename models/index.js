@@ -15,6 +15,7 @@ module.exports = {
     Order: require('./Order'),
     PaymentMethod: require('./PaymentMethod'),
     BandFits: require('./BandFits'),
+    SizeScale: require('./SizeScale'),
     FlexibilityType: require('./FlexibilityType'),
     ProductSpecials: require('./ProductSpecials'),
     Collections: require('./Collections'),

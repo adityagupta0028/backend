@@ -59,8 +59,17 @@ router.post("/createBraceletProduct", Auth.verify("Admin"), upload.any(), Contro
 router.post("/createNecklaceProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createNecklaceProduct);
 router.post("/createEarringsProduct", Auth.verify("Admin"), upload.any(), Controller.ProductController.createEarringsProduct);
 router.post("/import-ring-product", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importRingProducts);
+router.post("/import-bracelet-product", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importBraceletProducts);
+router.get("/export-bracelet-variants", Auth.verify("Admin"), Controller.ProductController.exportBraceletVariants);
+router.post("/import-earrings-product", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importEarringsProducts);
+router.get("/export-earrings-variants", Auth.verify("Admin"), Controller.ProductController.exportEarringsVariants);
+router.post("/import-earrings-variants", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importEarringsVariants);
+router.post("/import-necklace-product", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importNecklaceProducts);
+router.get("/export-necklace-variants", Auth.verify("Admin"), Controller.ProductController.exportNecklaceVariants);
 router.get("/export-ring-variants", Auth.verify("Admin"), Controller.ProductController.exportRingVariants);
 router.post("/import-ring-variants", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importRingVariants);
+router.post("/import-bracelet-variants", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importBraceletVariants);
+router.post("/import-necklace-variants", Auth.verify("Admin"), upload.single("csv"), Controller.ProductController.importNecklaceVariants);
 router.get("/getProducts", Controller.ProductController.getProducts);
 router.get("/getProductDetail/:id", Controller.ProductController.getProductDetail);
 router.get("/getProductByProductId/:product_id", Controller.ProductController.getProductByProductId);
@@ -77,6 +86,10 @@ router.delete("/deleteBanner/:id", Auth.verify("admin"), Controller.BannerContro
 // BandFits Routes
 router.post("/createBandFit", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createBandFit);
 router.get("/getBandFits", Controller.ProductAttributesController.getBandFits);
+
+// SizeScale Routes
+router.post("/createSizeScale", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createSizeScale);
+router.get("/getSizeScales", Controller.ProductAttributesController.getSizeScales);
 
 // FlexibilityType Routes
 router.post("/createFlexibilityType", Auth.verify("Admin"), upload.single('image'), Controller.ProductAttributesController.createFlexibilityType);
