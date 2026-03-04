@@ -3368,6 +3368,76 @@ module.exports.getProductByProductId = async (req, res, next) => {
 // Update Product
 module.exports.updateProduct = async (req, res, next) => {
   try {
+    // Parse variants from JSON string (multipart/form-data case)
+    if (req.body.variants) {
+      if (typeof req.body.variants === 'string') {
+        try {
+          req.body.variants = JSON.parse(req.body.variants);
+        } catch (e) {
+          return next(new Error('Invalid variants JSON'));
+        }
+      }
+    }
+
+    // Parse productDetailsConfiguration from JSON string (multipart/form-data case)
+    if (req.body.productDetailsConfiguration) {
+      if (typeof req.body.productDetailsConfiguration === 'string') {
+        try {
+          req.body.productDetailsConfiguration = JSON.parse(
+            req.body.productDetailsConfiguration
+          );
+        } catch (e) {
+          return next(new Error('Invalid productDetailsConfiguration JSON'));
+        }
+      }
+    }
+
+    // Parse centerStoneDetailsConfiguration from JSON string (multipart/form-data case)
+    if (req.body.centerStoneDetailsConfiguration) {
+      if (typeof req.body.centerStoneDetailsConfiguration === 'string') {
+        try {
+          req.body.centerStoneDetailsConfiguration = JSON.parse(
+            req.body.centerStoneDetailsConfiguration
+          );
+        } catch (e) {
+          return next(new Error('Invalid centerStoneDetailsConfiguration JSON'));
+        }
+      }
+    }
+
+    // Parse sideStoneDetailsConfiguration from JSON string (multipart/form-data case)
+    if (req.body.sideStoneDetailsConfiguration) {
+      if (typeof req.body.sideStoneDetailsConfiguration === 'string') {
+        try {
+          req.body.sideStoneDetailsConfiguration = JSON.parse(
+            req.body.sideStoneDetailsConfiguration
+          );
+        } catch (e) {
+          return next(new Error('Invalid sideStoneDetailsConfiguration JSON'));
+        }
+      }
+    }
+
+    // Parse stoneDetailsFormConfiguration from JSON string (multipart/form-data case)
+    if (req.body.stoneDetailsFormConfiguration) {
+      if (typeof req.body.stoneDetailsFormConfiguration === 'string') {
+        try {
+          req.body.stoneDetailsFormConfiguration = JSON.parse(
+            req.body.stoneDetailsFormConfiguration
+          );
+        } catch (e) {
+          return next(new Error('Invalid stoneDetailsFormConfiguration JSON'));
+        }
+      }
+    }
+
+    // Ensure status is a string (multipart can send repeated keys as array)
+    if (req.body.status !== undefined && req.body.status !== null) {
+      req.body.status = Array.isArray(req.body.status)
+        ? (req.body.status[0] != null ? String(req.body.status[0]) : undefined)
+        : String(req.body.status);
+    }
+
     await Validation.Product.updateProduct.validateAsync(req.body);
 
     let product = await Model.Product.findOne({
@@ -3607,6 +3677,12 @@ module.exports.updateProduct = async (req, res, next) => {
 
     // Validate matching band product ID if matching band is available
     if (req.body.matching_band_available !== undefined) {
+      // Coerce string values from FormData to real booleans
+      if (typeof req.body.matching_band_available === 'string') {
+        req.body.matching_band_available =
+          req.body.matching_band_available === 'true';
+      }
+
       if (req.body.matching_band_available && req.body.matching_band_product_id) {
         const matchingProduct = await Model.Product.findOne({
           _id: req.body.matching_band_product_id,
